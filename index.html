@@ -393,6 +393,8 @@
       <span><span class="legend-dot" style="background:var(--danger)"></span>Maximale</span>
       <span><span class="legend-dot" style="background:var(--gold)"></span>Moyenne</span>
       <span><span class="legend-dot" style="background:var(--azure)"></span>Minimale</span>
+      <span><span class="legend-dot" style="background:#d62828"></span>Seuil canicule (35°)</span>
+      <span><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
     </div>
   </div>
 
@@ -416,7 +418,12 @@
 </div>
 
 <script>
-const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d" };
+const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d", canicule:"#d62828", gel:"#48cae4" };
+const CANICULE_SEUIL = 35;
+const GEL_SEUIL = 0;
+const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jour de pluie"
+const VENT_SEUIL = 60; // km/h — rafales, seuil usuel de "vent fort"
+const NEIGE_CODES = [71,73,75,77,85,86]; // codes météo WMO correspondant à de la neige
 const LAG_DAYS = 5; // délai de consolidation des archives climatiques Open-Meteo
 
 let currentCity = { name:"Paris", admin1:"Île-de-France", country:"France", lat:48.8566, lon:2.3522 };
@@ -747,7 +754,7 @@ async function loadAndRender(){
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
       ? `&elevation=${currentCity.elevation}` : "";
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code&timezone=auto${elevationParam}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&timezone=auto${elevationParam}`;
     const res = await fetch(url);
     const data = await res.json();
     if(myId !== requestId) return;
@@ -765,6 +772,9 @@ async function loadAndRender(){
       min:data.daily.temperature_2m_min[i],
       mean:data.daily.temperature_2m_mean[i],
       weatherCode: data.daily.weather_code ? data.daily.weather_code[i] : null,
+      precipitation: data.daily.precipitation_sum ? data.daily.precipitation_sum[i] : null,
+      windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
+      windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
     })).filter(r => r.max !== null && r.min !== null);
 
     if(!rows.length){
@@ -802,6 +812,8 @@ function renderChart(rows){
         { label:"Maximale", data: rows.map(r=>r.max), borderColor: PALETTE.max, backgroundColor: PALETTE.max, pointRadius:0, borderWidth:2, tension:0.3 },
         { label:"Moyenne", data: rows.map(r=>r.mean), borderColor: PALETTE.mean, backgroundColor: PALETTE.mean, pointRadius:0, borderWidth:1.5, borderDash:[4,3], tension:0.3 },
         { label:"Minimale", data: rows.map(r=>r.min), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
+        { label:`Seuil canicule (${CANICULE_SEUIL}°)`, data: labels.map(()=>CANICULE_SEUIL), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
       ],
     },
     options: {
@@ -843,6 +855,11 @@ function renderStats(rows, start, end){
   });
   const avg = count ? sum/count : null;
   const amplitude = maxRow.max - minRow.min;
+  const caniculeDays = rows.filter(r => r.max >= CANICULE_SEUIL).length;
+  const gelDays = rows.filter(r => r.min <= GEL_SEUIL).length;
+  const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL).length;
+  const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
+  const neigeDays = rows.filter(r => r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode)).length;
 
   // Jauge
   gaugePanelEl.style.display = "block";
@@ -884,6 +901,31 @@ function renderStats(rows, start, end){
       <div class="card-label">Écart thermique</div>
       <div class="card-value">${amplitude.toFixed(1)}°</div>
       <div class="card-sub">max − min</div>
+    </div>
+    <div class="card" style="--accent:${PALETTE.canicule}">
+      <div class="card-label">Jours de canicule</div>
+      <div class="card-value" style="color:${PALETTE.canicule}">${caniculeDays}</div>
+      <div class="card-sub">max ≥ ${CANICULE_SEUIL}° sur ${rows.length} jours</div>
+    </div>
+    <div class="card" style="--accent:${PALETTE.gel}">
+      <div class="card-label">Jours de gel</div>
+      <div class="card-value" style="color:${PALETTE.gel}">${gelDays}</div>
+      <div class="card-sub">min ≤ ${GEL_SEUIL}° sur ${rows.length} jours</div>
+    </div>
+    <div class="card" style="--accent:#457b9d">
+      <div class="card-label">Jours de pluie</div>
+      <div class="card-value" style="color:#457b9d">${pluieDays}</div>
+      <div class="card-sub">≥ ${PLUIE_SEUIL} mm sur ${rows.length} jours</div>
+    </div>
+    <div class="card" style="--accent:#8fa4b8">
+      <div class="card-label">Jours de vent fort</div>
+      <div class="card-value" style="color:#8fa4b8">${ventDays}</div>
+      <div class="card-sub">rafales ≥ ${VENT_SEUIL} km/h sur ${rows.length} jours</div>
+    </div>
+    <div class="card" style="--accent:#a8dadc">
+      <div class="card-label">Jours de neige</div>
+      <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
+      <div class="card-sub">sur ${rows.length} jours</div>
     </div>
   `;
 
@@ -932,6 +974,50 @@ document.getElementById("share-btn").addEventListener("click", async () => {
 // ---------- Init from URL ----------
 (function init(){
   const params = new URLSearchParams(window.location.search);
+
+  // Accès simple par API (ex: appli mobile) : ?lat=48.85&lon=2.35[&ville=Paris][&periode=30][&debut=2024-01-01&fin=2024-01-31]
+  const latParam = params.get("lat");
+  const lonParam = params.get("lon");
+
+  if(latParam !== null && lonParam !== null && !isNaN(parseFloat(latParam)) && !isNaN(parseFloat(lonParam))){
+    const lat = parseFloat(latParam);
+    const lon = parseFloat(lonParam);
+    const villeParam = params.get("ville");
+    const altParam = params.get("alt");
+    currentCity = {
+      name: villeParam || "Position GPS",
+      admin1: "",
+      country: "",
+      lat, lon,
+      modelElevation: null,
+      elevation: (altParam !== null && !isNaN(parseFloat(altParam))) ? parseFloat(altParam) : null,
+    };
+
+    const periodeParam = params.get("periode");
+    const debutParam = params.get("debut");
+    const finParam = params.get("fin");
+
+    if(debutParam && finParam){
+      periodPreset = "custom";
+      setSelectsFromDate("start", new Date(debutParam + "T00:00:00"));
+      setSelectsFromDate("end", new Date(finParam + "T00:00:00"));
+      customRangeEl.dataset.initialized = "1";
+      customRangeEl.style.display = "flex";
+    } else if(["7","30","90","365"].includes(periodeParam)){
+      periodPreset = periodeParam;
+    } else {
+      periodPreset = "30";
+    }
+    periodChipsEl.querySelectorAll(".period-chip").forEach(c => {
+      c.classList.toggle("active", c.dataset.preset === periodPreset);
+    });
+
+    renderCurrentCity();
+    loadAndRender();
+    return;
+  }
+
+  // Lien de partage généré par le site lui-même (bouton "Copier le lien")
   const c = params.get("c");
   const decoded = c ? decodeState(c) : null;
   if(decoded){
