@@ -395,6 +395,7 @@
       <span><span class="legend-dot" style="background:var(--azure)"></span>Minimale</span>
       <span><span class="legend-dot" style="background:#d62828"></span>Seuil canicule (35°)</span>
       <span><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
+      <span><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
     </div>
   </div>
 
@@ -418,7 +419,7 @@
 </div>
 
 <script>
-const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d", canicule:"#d62828", gel:"#48cae4" };
+const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d", canicule:"#d62828", gel:"#48cae4", pressure:"#9d4edd" };
 const CANICULE_SEUIL = 35;
 const GEL_SEUIL = 0;
 const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jour de pluie"
@@ -754,7 +755,7 @@ async function loadAndRender(){
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
       ? `&elevation=${currentCity.elevation}` : "";
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&timezone=auto${elevationParam}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure&timezone=auto${elevationParam}`;
     const res = await fetch(url);
     const data = await res.json();
     if(myId !== requestId) return;
@@ -766,6 +767,19 @@ async function loadAndRender(){
       return;
     }
 
+    // Moyenne journalière de la pression atmosphérique à partir des données horaires
+    const pressureByDate = {};
+    if(data.hourly && data.hourly.time && data.hourly.surface_pressure){
+      data.hourly.time.forEach((t, i) => {
+        const day = t.slice(0, 10);
+        const p = data.hourly.surface_pressure[i];
+        if(p === null || p === undefined) return;
+        if(!pressureByDate[day]) pressureByDate[day] = { sum:0, count:0 };
+        pressureByDate[day].sum += p;
+        pressureByDate[day].count++;
+      });
+    }
+
     const rows = data.daily.time.map((t,i) => ({
       date:t,
       max:data.daily.temperature_2m_max[i],
@@ -775,6 +789,7 @@ async function loadAndRender(){
       precipitation: data.daily.precipitation_sum ? data.daily.precipitation_sum[i] : null,
       windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
       windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
+      pressure: pressureByDate[t] ? pressureByDate[t].sum / pressureByDate[t].count : null,
     })).filter(r => r.max !== null && r.min !== null);
 
     if(!rows.length){
@@ -814,6 +829,7 @@ function renderChart(rows){
         { label:"Minimale", data: rows.map(r=>r.min), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
         { label:`Seuil canicule (${CANICULE_SEUIL}°)`, data: labels.map(()=>CANICULE_SEUIL), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
         { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:"Pression atmosphérique", data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
       ],
     },
     options: {
@@ -827,7 +843,9 @@ function renderChart(rows){
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
           callbacks:{
             title: (items) => formatLong(items[0].label),
-            label: (item) => `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
+            label: (item) => item.dataset.label === "Pression atmosphérique"
+              ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
+              : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
           }
         }
       },
@@ -840,6 +858,11 @@ function renderChart(rows){
         y:{
           grid:{ color:"#1a2c40" },
           ticks:{ color:"#8fa4b8", font:{ family:"IBM Plex Mono", size:11 }, callback: v => v + "°" },
+        },
+        y1:{
+          position:"right",
+          grid:{ display:false },
+          ticks:{ color: PALETTE.pressure, font:{ family:"IBM Plex Mono", size:11 }, callback: v => v + " hPa" },
         },
       },
     },
