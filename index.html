@@ -399,6 +399,7 @@
     </div>
   </div>
   <div class="tip" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
+  <div class="tip" style="text-align:center; font-size:12px; opacity:.5; margin-top:4px;">ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.</div>
 
   <div class="cards" id="cards"></div>
 
@@ -821,6 +822,10 @@ function renderChart(rows){
   const ctx = document.getElementById("tempChart").getContext("2d");
   const labels = rows.map(r => r.date);
   if(chart) chart.destroy();
+  document.querySelectorAll("#chart-legend .legend-item").forEach(item => {
+    item.style.opacity = 1;
+    item.style.textDecoration = "none";
+  });
   chart = new Chart(ctx, {
     type: "line",
     data: {
@@ -1001,6 +1006,9 @@ document.getElementById("chart-legend").addEventListener("click", (e) => {
   if(idx < 0) return;
   const meta = chart.getDatasetMeta(idx);
   meta.hidden = meta.hidden === null ? !chart.data.datasets[idx].hidden : !meta.hidden;
+  if(label === "Pression atmosphérique"){
+    chart.options.scales.y1.display = !meta.hidden;
+  }
   chart.update();
   item.style.opacity = meta.hidden ? 0.4 : 1;
   item.style.textDecoration = meta.hidden ? "line-through" : "none";
