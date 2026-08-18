@@ -399,6 +399,15 @@
       <span class="legend-item" data-legend-label="Qualité de l'air (AQI)" id="legend-aqi" style="cursor:pointer;"><span class="legend-dot" style="background:#52b788"></span>Qualité de l'air (AQI)</span>
     </div>
     <div id="aqi-unavailable" style="display:none; text-align:center; font-size:12px; opacity:.6; margin-top:6px;">⚠️ Qualité de l'air indisponible pour cette ville ou cette période.</div>
+    <div id="aqi-bands-legend" class="legend-row" style="display:none; justify-content:center; margin-top:6px; font-size:11px; opacity:.75;">
+      <span style="opacity:.6;">AQI :</span>
+      <span><span class="legend-dot" style="background:#52b788"></span>Bon (0–20)</span>
+      <span><span class="legend-dot" style="background:#a7c957"></span>Correct (20–40)</span>
+      <span><span class="legend-dot" style="background:#e9c46a"></span>Modéré (40–60)</span>
+      <span><span class="legend-dot" style="background:#f4a261"></span>Médiocre (60–80)</span>
+      <span><span class="legend-dot" style="background:#e76f51"></span>Mauvais (80–100)</span>
+      <span><span class="legend-dot" style="background:#9d0208"></span>Très mauvais (100+)</span>
+    </div>
   </div>
   <div class="tip" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
   <div class="tip" style="text-align:center; font-size:12px; opacity:.5; margin-top:4px;">ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.</div>
@@ -706,6 +715,20 @@ function weatherEmoji(code){
   return "🌡️";
 }
 
+// Phase lunaire — calcul astronomique local, sans appel réseau, valable pour toute date passée ou future.
+const MOON_ICONS = ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
+const MOON_LABELS = ["Nouvelle lune","Premier croissant","Premier quartier","Lune gibbeuse croissante","Pleine lune","Lune gibbeuse décroissante","Dernier quartier","Dernier croissant"];
+function moonPhase(dateStr){
+  const date = new Date(dateStr + "T12:00:00Z"); // midi UTC pour éviter les effets de fuseau horaire
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14, 0); // nouvelle lune de référence
+  const synodicMonth = 29.530588853; // durée moyenne du cycle lunaire en jours
+  const diffDays = (date.getTime() - knownNewMoon) / 86400000;
+  let phase = (diffDays % synodicMonth) / synodicMonth;
+  if(phase < 0) phase += 1;
+  const index = Math.round(phase * 8) % 8;
+  return { emoji: MOON_ICONS[index], label: MOON_LABELS[index] };
+}
+
 function degToCompass(deg){
   if(deg == null) return null;
   const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
@@ -841,6 +864,43 @@ async function loadAndRender(){
   }
 }
 
+const AQI_BANDS = [
+  { min:0,   max:20,   color:"#52b788", label:"Bon" },
+  { min:20,  max:40,   color:"#a7c957", label:"Correct" },
+  { min:40,  max:60,   color:"#e9c46a", label:"Modéré" },
+  { min:60,  max:80,   color:"#f4a261", label:"Médiocre" },
+  { min:80,  max:100,  color:"#e76f51", label:"Mauvais" },
+  { min:100, max:99999,color:"#9d0208", label:"Très mauvais" },
+];
+
+const aqiBandsPlugin = {
+  id: "aqiBandsPlugin",
+  beforeDraw(chart){
+    const { ctx, chartArea, scales } = chart;
+    const y2 = scales.y2;
+    if(!y2 || !chart.options.scales.y2.display) return;
+    const aqiIndex = chart.data.datasets.findIndex(ds => ds.label === "Qualité de l'air (AQI)");
+    if(aqiIndex < 0) return;
+    const meta = chart.getDatasetMeta(aqiIndex);
+    if(meta.hidden) return;
+
+    const stripWidth = 6;
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    AQI_BANDS.forEach(band => {
+      const yTop = y2.getPixelForValue(Math.min(band.max, y2.max));
+      const yBottom = y2.getPixelForValue(band.min);
+      const top = Math.max(chartArea.top, Math.min(yTop, yBottom));
+      const bottom = Math.min(chartArea.bottom, Math.max(yTop, yBottom));
+      if(bottom <= top) return;
+      ctx.fillStyle = band.color;
+      ctx.fillRect(chartArea.right - stripWidth, top, stripWidth, bottom - top);
+    });
+    ctx.restore();
+  },
+};
+Chart.register(aqiBandsPlugin);
+
 function renderChart(rows){
   const ctx = document.getElementById("tempChart").getContext("2d");
   const labels = rows.map(r => r.date);
@@ -874,7 +934,8 @@ function renderChart(rows){
           titleFont:{ family:"Space Grotesk" }, bodyFont:{ family:"IBM Plex Mono", size:12 },
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
           callbacks:{
-            title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${formatLong(items[0].label)}`,
+            title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${moonPhase(rows[items[0].dataIndex].date).emoji} ${formatLong(items[0].label)}`,
+            afterTitle: (items) => moonPhase(rows[items[0].dataIndex].date).label,
             label: (item) => item.dataset.label === "Pression atmosphérique"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
               : item.dataset.label === "Qualité de l'air (AQI)"
@@ -911,7 +972,9 @@ function renderChart(rows){
   const aqiAvailable = rows.some(r => r.aqi !== null);
   const aqiLegendItem = document.getElementById("legend-aqi");
   const aqiUnavailableEl = document.getElementById("aqi-unavailable");
+  const aqiBandsLegendEl = document.getElementById("aqi-bands-legend");
   aqiUnavailableEl.style.display = aqiAvailable ? "none" : "block";
+  aqiBandsLegendEl.style.display = aqiAvailable ? "flex" : "none";
   aqiLegendItem.style.opacity = aqiAvailable ? 1 : 0.35;
   aqiLegendItem.style.cursor = aqiAvailable ? "pointer" : "default";
   aqiLegendItem.style.pointerEvents = aqiAvailable ? "auto" : "none";
