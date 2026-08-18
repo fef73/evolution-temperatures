@@ -389,15 +389,16 @@
       <div id="chart-status">Recherche une ville pour démarrer.</div>
       <canvas id="tempChart"></canvas>
     </div>
-    <div class="legend-row">
-      <span><span class="legend-dot" style="background:var(--danger)"></span>Maximale</span>
-      <span><span class="legend-dot" style="background:var(--gold)"></span>Moyenne</span>
-      <span><span class="legend-dot" style="background:var(--azure)"></span>Minimale</span>
-      <span><span class="legend-dot" style="background:#d62828"></span>Seuil canicule (35°)</span>
-      <span><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
-      <span><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
+    <div class="legend-row" id="chart-legend">
+      <span class="legend-item" data-legend-label="Maximale" style="cursor:pointer;"><span class="legend-dot" style="background:var(--danger)"></span>Maximale</span>
+      <span class="legend-item" data-legend-label="Moyenne" style="cursor:pointer;"><span class="legend-dot" style="background:var(--gold)"></span>Moyenne</span>
+      <span class="legend-item" data-legend-label="Minimale" style="cursor:pointer;"><span class="legend-dot" style="background:var(--azure)"></span>Minimale</span>
+      <span class="legend-item" data-legend-label="Seuil canicule (35°)" style="cursor:pointer;"><span class="legend-dot" style="background:#d62828"></span>Seuil canicule (35°)</span>
+      <span class="legend-item" data-legend-label="Seuil de gel (0°)" style="cursor:pointer;"><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
+      <span class="legend-item" data-legend-label="Pression atmosphérique" style="cursor:pointer;"><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
     </div>
   </div>
+  <div class="tip" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
 
   <div class="cards" id="cards"></div>
 
@@ -425,6 +426,7 @@ const GEL_SEUIL = 0;
 const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jour de pluie"
 const VENT_SEUIL = 60; // km/h — rafales, seuil usuel de "vent fort"
 const NEIGE_CODES = [71,73,75,77,85,86]; // codes météo WMO correspondant à de la neige
+const BEAU_TEMPS_CODES = [0,1,2]; // ciel clair ou peu nuageux
 const LAG_DAYS = 5; // délai de consolidation des archives climatiques Open-Meteo
 
 let currentCity = { name:"Paris", admin1:"Île-de-France", country:"France", lat:48.8566, lon:2.3522 };
@@ -842,7 +844,7 @@ function renderChart(rows){
           titleFont:{ family:"Space Grotesk" }, bodyFont:{ family:"IBM Plex Mono", size:12 },
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
           callbacks:{
-            title: (items) => formatLong(items[0].label),
+            title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${formatLong(items[0].label)}`,
             label: (item) => item.dataset.label === "Pression atmosphérique"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
               : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
@@ -883,6 +885,7 @@ function renderStats(rows, start, end){
   const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL).length;
   const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
   const neigeDays = rows.filter(r => r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode)).length;
+  const beauTempsDays = rows.filter(r => r.weatherCode !== null && BEAU_TEMPS_CODES.includes(r.weatherCode)).length;
 
   // Jauge
   gaugePanelEl.style.display = "block";
@@ -950,6 +953,14 @@ function renderStats(rows, start, end){
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
       <div class="card-sub">sur ${rows.length} jours</div>
     </div>
+    <div class="card" style="--accent:#e9c46a">
+      <div class="card-label">Jours de beau temps</div>
+      <div class="card-value-row">
+        <span class="card-icon">☀️</span>
+        <div class="card-value" style="color:#e9c46a">${beauTempsDays}</div>
+      </div>
+      <div class="card-sub">ciel clair ou peu nuageux sur ${rows.length} jours</div>
+    </div>
   `;
 
   const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
@@ -981,6 +992,19 @@ function renderStats(rows, start, end){
 }
 
 document.getElementById("refresh-btn").addEventListener("click", loadAndRender);
+
+document.getElementById("chart-legend").addEventListener("click", (e) => {
+  const item = e.target.closest(".legend-item");
+  if(!item || !chart) return;
+  const label = item.dataset.legendLabel;
+  const idx = chart.data.datasets.findIndex(ds => ds.label === label);
+  if(idx < 0) return;
+  const meta = chart.getDatasetMeta(idx);
+  meta.hidden = meta.hidden === null ? !chart.data.datasets[idx].hidden : !meta.hidden;
+  chart.update();
+  item.style.opacity = meta.hidden ? 0.4 : 1;
+  item.style.textDecoration = meta.hidden ? "line-through" : "none";
+});
 document.getElementById("share-btn").addEventListener("click", async () => {
   syncUrl();
   try{
