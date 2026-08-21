@@ -441,6 +441,7 @@ const CANICULE_SEUIL = 35;
 const GEL_SEUIL = 0;
 const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jour de pluie"
 const VENT_SEUIL = 60; // km/h — rafales, seuil usuel de "vent fort"
+const AQI_SEUIL = 40; // seuil European AQI au-delà duquel la qualité de l'air est considérée dégradée
 const NEIGE_CODES = [71,73,75,77,85,86]; // codes météo WMO correspondant à de la neige
 const BEAU_TEMPS_CODES = [0,1,2]; // ciel clair ou peu nuageux
 const LAG_DAYS = 5; // délai de consolidation des archives climatiques Open-Meteo
@@ -950,6 +951,7 @@ function renderChart(rows){
         { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
         { label:"Pression atmosphérique", data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
         { label:"Qualité de l'air (AQI)", data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
+        { label:`Seuil AQI (${AQI_SEUIL})`, data: labels.map(()=>AQI_SEUIL), borderColor:"#52b788", backgroundColor:"#52b788", pointRadius:0, borderWidth:1.5, borderDash:[6,4], tension:0, yAxisID:"y2", hidden: !rows.some(r => r.aqi !== null) },
         { label:"Isotherme 0°C (estimée)", data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
       ],
     },
@@ -967,7 +969,7 @@ function renderChart(rows){
             afterTitle: (items) => moonPhase(rows[items[0].dataIndex].date).label,
             label: (item) => item.dataset.label === "Pression atmosphérique"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
-              : item.dataset.label === "Qualité de l'air (AQI)"
+              : (item.dataset.label === "Qualité de l'air (AQI)" || item.dataset.label === `Seuil AQI (${AQI_SEUIL})`)
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
               : item.dataset.label === "Isotherme 0°C (estimée)"
               ? `${item.dataset.label} : ${item.raw !== null ? formatIsotherm(item.raw) : "—"}`
@@ -1051,6 +1053,8 @@ function renderStats(rows, start, end){
   const neigeDays = rows.filter(isNeige).length;
   const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL && !isNeige(r)).length;
   const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
+  const aqiDaysAvailable = rows.some(r => r.aqi !== null);
+  const aqiDays = rows.filter(r => r.aqi !== null && r.aqi > AQI_SEUIL).length;
   const beauTempsDays = rows.filter(r => r.weatherCode !== null && BEAU_TEMPS_CODES.includes(r.weatherCode)).length;
 
   // Jauge
@@ -1114,6 +1118,11 @@ function renderStats(rows, start, end){
       <div class="card-value" style="color:#8fa4b8">${ventDays}</div>
       <div class="card-sub">rafales ≥ ${VENT_SEUIL} km/h sur ${rows.length} jours</div>
     </div>
+    <div class="card" style="--accent:${PALETTE.aqi}">
+      <div class="card-label">Jours AQI > ${AQI_SEUIL}</div>
+      <div class="card-value" style="color:${PALETTE.aqi}">${aqiDaysAvailable ? aqiDays : "—"}</div>
+      <div class="card-sub">${aqiDaysAvailable ? `qualité de l'air dégradée · sur ${rows.length} jours` : "donnée AQI indisponible"}</div>
+    </div>
     <div class="card" style="--accent:#a8dadc">
       <div class="card-label">Jours de neige</div>
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
@@ -1172,6 +1181,11 @@ document.getElementById("chart-legend").addEventListener("click", (e) => {
   }
   if(label === "Qualité de l'air (AQI)"){
     chart.options.scales.y2.display = !meta.hidden;
+    const seuilIdx = chart.data.datasets.findIndex(ds => ds.label === `Seuil AQI (${AQI_SEUIL})`);
+    if(seuilIdx >= 0){
+      const seuilMeta = chart.getDatasetMeta(seuilIdx);
+      seuilMeta.hidden = meta.hidden;
+    }
   }
   if(label === "Isotherme 0°C (estimée)"){
     chart.options.scales.y3.display = !meta.hidden;
