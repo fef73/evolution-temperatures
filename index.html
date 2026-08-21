@@ -783,7 +783,7 @@ async function loadAndRender(){
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
       ? `&elevation=${currentCity.elevation}` : "";
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure&timezone=auto${elevationParam}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure,freezing_level_height&timezone=auto${elevationParam}`;
     const res = await fetch(url);
     const data = await res.json();
     if(myId !== requestId) return;
@@ -797,6 +797,8 @@ async function loadAndRender(){
 
     // Moyenne journalière de la pression atmosphérique à partir des données horaires
     const pressureByDate = {};
+    // Moyenne journalière de l'altitude de l'isotherme 0°C (pour distinguer pluie/neige selon l'altitude du point)
+    const freezingLevelByDate = {};
     if(data.hourly && data.hourly.time && data.hourly.surface_pressure){
       data.hourly.time.forEach((t, i) => {
         const day = t.slice(0, 10);
@@ -805,6 +807,16 @@ async function loadAndRender(){
         if(!pressureByDate[day]) pressureByDate[day] = { sum:0, count:0 };
         pressureByDate[day].sum += p;
         pressureByDate[day].count++;
+      });
+    }
+    if(data.hourly && data.hourly.time && data.hourly.freezing_level_height){
+      data.hourly.time.forEach((t, i) => {
+        const day = t.slice(0, 10);
+        const f = data.hourly.freezing_level_height[i];
+        if(f === null || f === undefined) return;
+        if(!freezingLevelByDate[day]) freezingLevelByDate[day] = { sum:0, count:0 };
+        freezingLevelByDate[day].sum += f;
+        freezingLevelByDate[day].count++;
       });
     }
 
@@ -838,6 +850,7 @@ async function loadAndRender(){
       windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
       windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
       pressure: pressureByDate[t] ? pressureByDate[t].sum / pressureByDate[t].count : null,
+      freezingLevel: freezingLevelByDate[t] ? freezingLevelByDate[t].sum / freezingLevelByDate[t].count : null,
       aqi: aqiByDate[t] ? aqiByDate[t].sum / aqiByDate[t].count : null,
     })).filter(r => r.max !== null && r.min !== null);
 
@@ -991,7 +1004,26 @@ function renderStats(rows, start, end){
   const amplitude = maxRow.max - minRow.min;
   const caniculeDays = rows.filter(r => r.max >= CANICULE_SEUIL).length;
   const gelDays = rows.filter(r => r.min <= GEL_SEUIL).length;
-  const isNeige = r => r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode);
+
+  // Altitude effective du point : celle précisée par l'utilisateur, sinon l'altitude
+  // retenue par le modèle climatique pour cette ville.
+  const effectiveAltitude = (currentCity.elevation !== null && currentCity.elevation !== undefined)
+    ? currentCity.elevation
+    : (currentCity.modelElevation !== null && currentCity.modelElevation !== undefined ? currentCity.modelElevation : 0);
+
+  // Un jour est classé "neige" si : il y a des précipitations ce jour-là ET le point est
+  // au-dessus (ou proche sous) l'isotherme 0°C du jour. La marge de 200 m tient compte du
+  // fait qu'en pratique la neige atteint souvent un peu plus bas que l'altitude exacte de 0°C
+  // (refroidissement par fusion des flocons en tombant). Si l'isotherme n'est pas disponible
+  // pour un jour donné, on se replie sur le code météo du modèle (moins sensible à l'altitude).
+  const ALTITUDE_NEIGE_MARGE = 200; // m
+  const isNeige = r => {
+    if(r.precipitation === null || r.precipitation < PLUIE_SEUIL) return false;
+    if(r.freezingLevel !== null && r.freezingLevel !== undefined){
+      return effectiveAltitude >= (r.freezingLevel - ALTITUDE_NEIGE_MARGE);
+    }
+    return r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode);
+  };
   const neigeDays = rows.filter(isNeige).length;
   const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL && !isNeige(r)).length;
   const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
@@ -1051,7 +1083,7 @@ function renderStats(rows, start, end){
     <div class="card" style="--accent:#457b9d">
       <div class="card-label">Jours de pluie</div>
       <div class="card-value" style="color:#457b9d">${pluieDays}</div>
-      <div class="card-sub">≥ ${PLUIE_SEUIL} mm, hors neige · sur ${rows.length} jours</div>
+      <div class="card-sub">≥ ${PLUIE_SEUIL} mm, sous l'isotherme 0° · sur ${rows.length} jours</div>
     </div>
     <div class="card" style="--accent:#8fa4b8">
       <div class="card-label">Jours de vent fort</div>
@@ -1061,7 +1093,7 @@ function renderStats(rows, start, end){
     <div class="card" style="--accent:#a8dadc">
       <div class="card-label">Jours de neige</div>
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
-      <div class="card-sub">code météo neige · sur ${rows.length} jours</div>
+      <div class="card-sub">altitude ≥ isotherme 0° · sur ${rows.length} jours</div>
     </div>
     <div class="card" style="--accent:#e9c46a">
       <div class="card-label">Jours de beau temps</div>
