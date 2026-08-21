@@ -397,7 +397,7 @@
       <span class="legend-item" data-legend-label="Seuil de gel (0°)" style="cursor:pointer;"><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
       <span class="legend-item" data-legend-label="Pression atmosphérique" style="cursor:pointer;"><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
       <span class="legend-item" data-legend-label="Qualité de l'air (AQI)" id="legend-aqi" style="cursor:pointer;"><span class="legend-dot" style="background:#52b788"></span>Qualité de l'air (AQI)</span>
-      <span class="legend-item" data-legend-label="Isotherme 0°C" id="legend-isotherm" style="cursor:pointer; opacity:0.4; text-decoration:line-through;"><span class="legend-dot" style="background:#90e0ef"></span>Isotherme 0°C</span>
+      <span class="legend-item" data-legend-label="Isotherme 0°C (estimée)" id="legend-isotherm" style="cursor:pointer; opacity:0.4; text-decoration:line-through;"><span class="legend-dot" style="background:#90e0ef"></span>Isotherme 0°C (estimée)</span>
     </div>
     <div id="aqi-unavailable" style="display:none; text-align:center; font-size:12px; opacity:.6; margin-top:6px;">⚠️ Qualité de l'air indisponible pour cette ville ou cette période.</div>
     <div id="aqi-bands-legend" class="legend-row" style="display:none; justify-content:center; margin-top:6px; font-size:11px; opacity:.75;">
@@ -785,7 +785,7 @@ async function loadAndRender(){
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
       ? `&elevation=${currentCity.elevation}` : "";
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure,freezing_level_height&timezone=auto${elevationParam}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure&timezone=auto${elevationParam}`;
     const res = await fetch(url);
     const data = await res.json();
     if(myId !== requestId) return;
@@ -799,8 +799,6 @@ async function loadAndRender(){
 
     // Moyenne journalière de la pression atmosphérique à partir des données horaires
     const pressureByDate = {};
-    // Moyenne journalière de l'altitude de l'isotherme 0°C (pour distinguer pluie/neige selon l'altitude du point)
-    const freezingLevelByDate = {};
     if(data.hourly && data.hourly.time && data.hourly.surface_pressure){
       data.hourly.time.forEach((t, i) => {
         const day = t.slice(0, 10);
@@ -811,16 +809,14 @@ async function loadAndRender(){
         pressureByDate[day].count++;
       });
     }
-    if(data.hourly && data.hourly.time && data.hourly.freezing_level_height){
-      data.hourly.time.forEach((t, i) => {
-        const day = t.slice(0, 10);
-        const f = data.hourly.freezing_level_height[i];
-        if(f === null || f === undefined) return;
-        if(!freezingLevelByDate[day]) freezingLevelByDate[day] = { sum:0, count:0 };
-        freezingLevelByDate[day].sum += f;
-        freezingLevelByDate[day].count++;
-      });
-    }
+
+    // Altitude effective utilisée pour la température de ce jeu de données (celle précisée
+    // par l'utilisateur, sinon l'altitude retenue par le modèle) — sert de référence pour
+    // estimer l'isotherme 0°C ci-dessous.
+    const LAPSE_RATE = 0.0065; // °C par mètre, gradient thermique standard de l'atmosphère
+    const refElevation = (currentCity.elevation !== null && currentCity.elevation !== undefined)
+      ? currentCity.elevation
+      : (currentCity.modelElevation !== null && currentCity.modelElevation !== undefined ? currentCity.modelElevation : 0);
 
     // Qualité de l'air (European AQI) — API distincte, moyenne journalière calculée à partir de l'horaire
     const aqiByDate = {};
@@ -842,19 +838,23 @@ async function loadAndRender(){
       }
     }catch(e){ /* qualité de l'air indisponible — on continue sans */ }
 
-    const rows = data.daily.time.map((t,i) => ({
-      date:t,
-      max:data.daily.temperature_2m_max[i],
-      min:data.daily.temperature_2m_min[i],
-      mean:data.daily.temperature_2m_mean[i],
-      weatherCode: data.daily.weather_code ? data.daily.weather_code[i] : null,
-      precipitation: data.daily.precipitation_sum ? data.daily.precipitation_sum[i] : null,
-      windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
-      windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
-      pressure: pressureByDate[t] ? pressureByDate[t].sum / pressureByDate[t].count : null,
-      freezingLevel: freezingLevelByDate[t] ? freezingLevelByDate[t].sum / freezingLevelByDate[t].count : null,
-      aqi: aqiByDate[t] ? aqiByDate[t].sum / aqiByDate[t].count : null,
-    })).filter(r => r.max !== null && r.min !== null);
+    const rows = data.daily.time.map((t,i) => {
+      const meanTemp = data.daily.temperature_2m_mean[i];
+      return {
+        date:t,
+        max:data.daily.temperature_2m_max[i],
+        min:data.daily.temperature_2m_min[i],
+        mean:meanTemp,
+        weatherCode: data.daily.weather_code ? data.daily.weather_code[i] : null,
+        precipitation: data.daily.precipitation_sum ? data.daily.precipitation_sum[i] : null,
+        windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
+        windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
+        pressure: pressureByDate[t] ? pressureByDate[t].sum / pressureByDate[t].count : null,
+        // Isotherme 0°C (estimée) : altitude de référence + (température du jour / gradient standard)
+        freezingLevel: (meanTemp !== null && meanTemp !== undefined) ? refElevation + (meanTemp / LAPSE_RATE) : null,
+        aqi: aqiByDate[t] ? aqiByDate[t].sum / aqiByDate[t].count : null,
+      };
+    }).filter(r => r.max !== null && r.min !== null);
 
     if(!rows.length){
       chartStatusEl.style.display = "flex";
@@ -921,7 +921,7 @@ function renderChart(rows){
   const labels = rows.map(r => r.date);
   if(chart) chart.destroy();
   document.querySelectorAll("#chart-legend .legend-item").forEach(item => {
-    const isIsotherm = item.dataset.legendLabel === "Isotherme 0°C";
+    const isIsotherm = item.dataset.legendLabel === "Isotherme 0°C (estimée)";
     const hiddenByDefault = isIsotherm && !showIsotherm;
     item.style.opacity = hiddenByDefault ? 0.4 : 1;
     item.style.textDecoration = hiddenByDefault ? "line-through" : "none";
@@ -939,7 +939,7 @@ function renderChart(rows){
         { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
         { label:"Pression atmosphérique", data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
         { label:"Qualité de l'air (AQI)", data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
-        { label:"Isotherme 0°C", data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
+        { label:"Isotherme 0°C (estimée)", data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
       ],
     },
     options: {
@@ -958,7 +958,7 @@ function renderChart(rows){
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
               : item.dataset.label === "Qualité de l'air (AQI)"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
-              : item.dataset.label === "Isotherme 0°C"
+              : item.dataset.label === "Isotherme 0°C (estimée)"
               ? `${item.dataset.label} : ${item.raw !== null ? Math.round(item.raw) + " m" : "—"}`
               : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
           }
@@ -1162,7 +1162,7 @@ document.getElementById("chart-legend").addEventListener("click", (e) => {
   if(label === "Qualité de l'air (AQI)"){
     chart.options.scales.y2.display = !meta.hidden;
   }
-  if(label === "Isotherme 0°C"){
+  if(label === "Isotherme 0°C (estimée)"){
     chart.options.scales.y3.display = !meta.hidden;
     showIsotherm = !meta.hidden;
   }
