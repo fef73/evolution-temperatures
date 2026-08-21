@@ -991,9 +991,10 @@ function renderStats(rows, start, end){
   const amplitude = maxRow.max - minRow.min;
   const caniculeDays = rows.filter(r => r.max >= CANICULE_SEUIL).length;
   const gelDays = rows.filter(r => r.min <= GEL_SEUIL).length;
-  const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL).length;
+  const isNeige = r => r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode);
+  const neigeDays = rows.filter(isNeige).length;
+  const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL && !isNeige(r)).length;
   const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
-  const neigeDays = rows.filter(r => r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode)).length;
   const beauTempsDays = rows.filter(r => r.weatherCode !== null && BEAU_TEMPS_CODES.includes(r.weatherCode)).length;
 
   // Jauge
@@ -1050,7 +1051,7 @@ function renderStats(rows, start, end){
     <div class="card" style="--accent:#457b9d">
       <div class="card-label">Jours de pluie</div>
       <div class="card-value" style="color:#457b9d">${pluieDays}</div>
-      <div class="card-sub">≥ ${PLUIE_SEUIL} mm sur ${rows.length} jours</div>
+      <div class="card-sub">≥ ${PLUIE_SEUIL} mm, hors neige · sur ${rows.length} jours</div>
     </div>
     <div class="card" style="--accent:#8fa4b8">
       <div class="card-label">Jours de vent fort</div>
@@ -1060,7 +1061,7 @@ function renderStats(rows, start, end){
     <div class="card" style="--accent:#a8dadc">
       <div class="card-label">Jours de neige</div>
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
-      <div class="card-sub">sur ${rows.length} jours</div>
+      <div class="card-sub">code météo neige · sur ${rows.length} jours</div>
     </div>
     <div class="card" style="--accent:#e9c46a">
       <div class="card-label">Jours de beau temps</div>
