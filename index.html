@@ -423,6 +423,9 @@
       pour les tout derniers jours, la moyenne mobile peut encore bouger légèrement une fois les relevés finalisés.
       Le bouton <b>⛰ Altitude</b> à côté du nom de la ville permet de préciser un point à une autre altitude
       (station de ski, sommet…) : la température est alors recalculée pour cette altitude.
+      La courbe <b>Isotherme 0°C</b> (masquée par défaut, à activer dans la légende) est une estimation à
+      partir de la température moyenne du jour ; une valeur négative signifie simplement que le 0°C
+      théorique se situe sous le niveau de la mer, un jour très froid.
     </div>
   </footer>
 </div>
@@ -916,6 +919,14 @@ const aqiBandsPlugin = {
 };
 Chart.register(aqiBandsPlugin);
 
+// Formate l'altitude de l'isotherme 0°C. Une valeur négative signifie que le niveau
+// théorique de 0°C se situe sous le niveau de la mer (journée très froide) : on l'exprime
+// alors explicitement plutôt que d'afficher un nombre négatif ambigu.
+function formatIsotherm(v){
+  const r = Math.round(v);
+  return r < 0 ? `${Math.abs(r)} m sous le niveau de la mer` : `${r} m`;
+}
+
 function renderChart(rows){
   const ctx = document.getElementById("tempChart").getContext("2d");
   const labels = rows.map(r => r.date);
@@ -959,7 +970,7 @@ function renderChart(rows){
               : item.dataset.label === "Qualité de l'air (AQI)"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
               : item.dataset.label === "Isotherme 0°C (estimée)"
-              ? `${item.dataset.label} : ${item.raw !== null ? Math.round(item.raw) + " m" : "—"}`
+              ? `${item.dataset.label} : ${item.raw !== null ? formatIsotherm(item.raw) : "—"}`
               : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
           }
         }
@@ -989,7 +1000,7 @@ function renderChart(rows){
           position:"right",
           display: showIsotherm,
           grid:{ display:false },
-          ticks:{ color: PALETTE.isotherm, font:{ family:"IBM Plex Mono", size:11 }, callback: v => Math.round(v) + " m" },
+          ticks:{ color: PALETTE.isotherm, font:{ family:"IBM Plex Mono", size:11 }, callback: v => formatIsotherm(v) },
         },
       },
     },
