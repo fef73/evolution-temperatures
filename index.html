@@ -397,6 +397,7 @@
       <span class="legend-item" data-legend-label="Seuil de gel (0°)" style="cursor:pointer;"><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
       <span class="legend-item" data-legend-label="Pression atmosphérique" style="cursor:pointer;"><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
       <span class="legend-item" data-legend-label="Qualité de l'air (AQI)" id="legend-aqi" style="cursor:pointer;"><span class="legend-dot" style="background:#52b788"></span>Qualité de l'air (AQI)</span>
+      <span class="legend-item" data-legend-label="Isotherme 0°C" id="legend-isotherm" style="cursor:pointer; opacity:0.4; text-decoration:line-through;"><span class="legend-dot" style="background:#90e0ef"></span>Isotherme 0°C</span>
     </div>
     <div id="aqi-unavailable" style="display:none; text-align:center; font-size:12px; opacity:.6; margin-top:6px;">⚠️ Qualité de l'air indisponible pour cette ville ou cette période.</div>
     <div id="aqi-bands-legend" class="legend-row" style="display:none; justify-content:center; margin-top:6px; font-size:11px; opacity:.75;">
@@ -432,7 +433,7 @@
 </div>
 
 <script>
-const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d", canicule:"#d62828", gel:"#48cae4", pressure:"#9d4edd", aqi:"#52b788" };
+const PALETTE = { max:"#e76f51", mean:"#e9c46a", min:"#457b9d", canicule:"#d62828", gel:"#48cae4", pressure:"#9d4edd", aqi:"#52b788", isotherm:"#90e0ef" };
 const CANICULE_SEUIL = 35;
 const GEL_SEUIL = 0;
 const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jour de pluie"
@@ -445,6 +446,7 @@ let currentCity = { name:"Paris", admin1:"Île-de-France", country:"France", lat
 let periodPreset = "30";
 let chart;
 let debounceTimer;
+let showIsotherm = false; // courbe de l'isotherme 0°C affichée uniquement à la demande
 
 // ---------- URL state ----------
 function todayMinusLag(){
@@ -919,8 +921,10 @@ function renderChart(rows){
   const labels = rows.map(r => r.date);
   if(chart) chart.destroy();
   document.querySelectorAll("#chart-legend .legend-item").forEach(item => {
-    item.style.opacity = 1;
-    item.style.textDecoration = "none";
+    const isIsotherm = item.dataset.legendLabel === "Isotherme 0°C";
+    const hiddenByDefault = isIsotherm && !showIsotherm;
+    item.style.opacity = hiddenByDefault ? 0.4 : 1;
+    item.style.textDecoration = hiddenByDefault ? "line-through" : "none";
     item.style.pointerEvents = "auto";
   });
   chart = new Chart(ctx, {
@@ -935,6 +939,7 @@ function renderChart(rows){
         { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
         { label:"Pression atmosphérique", data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
         { label:"Qualité de l'air (AQI)", data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
+        { label:"Isotherme 0°C", data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
       ],
     },
     options: {
@@ -953,6 +958,8 @@ function renderChart(rows){
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
               : item.dataset.label === "Qualité de l'air (AQI)"
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
+              : item.dataset.label === "Isotherme 0°C"
+              ? `${item.dataset.label} : ${item.raw !== null ? Math.round(item.raw) + " m" : "—"}`
               : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
           }
         }
@@ -977,6 +984,12 @@ function renderChart(rows){
           display: rows.some(r => r.aqi !== null),
           grid:{ display:false },
           ticks:{ color: PALETTE.aqi, font:{ family:"IBM Plex Mono", size:11 }, callback: v => v + " AQI" },
+        },
+        y3:{
+          position:"right",
+          display: showIsotherm,
+          grid:{ display:false },
+          ticks:{ color: PALETTE.isotherm, font:{ family:"IBM Plex Mono", size:11 }, callback: v => Math.round(v) + " m" },
         },
       },
     },
@@ -1148,6 +1161,10 @@ document.getElementById("chart-legend").addEventListener("click", (e) => {
   }
   if(label === "Qualité de l'air (AQI)"){
     chart.options.scales.y2.display = !meta.hidden;
+  }
+  if(label === "Isotherme 0°C"){
+    chart.options.scales.y3.display = !meta.hidden;
+    showIsotherm = !meta.hidden;
   }
   chart.update();
   item.style.opacity = meta.hidden ? 0.4 : 1;
