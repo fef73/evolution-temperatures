@@ -964,6 +964,7 @@ function renderChart(rows){
           backgroundColor:"#132539", borderColor:"#22384f", borderWidth:1,
           titleFont:{ family:"Space Grotesk" }, bodyFont:{ family:"IBM Plex Mono", size:12 },
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
+          filter: (item) => item.dataset.label !== `Seuil canicule (${CANICULE_SEUIL}°)` && item.dataset.label !== `Seuil de gel (${GEL_SEUIL}°)`,
           callbacks:{
             title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${moonPhase(rows[items[0].dataIndex].date).emoji} ${formatLong(items[0].label)}`,
             afterTitle: (items) => moonPhase(rows[items[0].dataIndex].date).label,
