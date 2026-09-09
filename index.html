@@ -44,6 +44,21 @@
     font-size:12px; letter-spacing:.14em; text-transform:uppercase;
     color:var(--live); display:flex; align-items:center; gap:8px; margin-bottom:8px;
   }
+  .header-top-row{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .header-top-row .eyebrow{margin-bottom:0;}
+  .lang-switch{
+    display:flex; gap:4px; background:var(--bg-input); border:1px solid var(--hairline);
+    border-radius:8px; padding:3px;
+  }
+  .lang-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; letter-spacing:.04em;
+    color:var(--text-lo); background:transparent; border:none; border-radius:6px;
+    padding:5px 10px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .lang-btn:hover{color:var(--text-hi);}
+  .lang-btn.active{background:var(--live); color:#0b1622;}
   .pulse{width:7px;height:7px;border-radius:50%;background:var(--live);
     box-shadow:0 0 0 0 rgba(126,228,184,.6); animation:pulse 2.2s infinite;}
   @keyframes pulse{
@@ -313,9 +328,15 @@
 <div class="wrap">
 
   <header>
-    <div class="eyebrow"><span class="pulse"></span> relevé climatique — open-meteo</div>
-    <h1>Évolution des températures</h1>
-    <div class="subtitle">Choisis une ville et une période : la courbe retrace le maximum, la moyenne et le minimum, jour après jour.</div>
+    <div class="header-top-row">
+      <div class="eyebrow" id="eyebrow"><span class="pulse"></span> relevé climatique — open-meteo</div>
+      <div class="lang-switch">
+        <button class="lang-btn" data-lang="fr">FR</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+    <h1 id="page-title">Évolution des températures</h1>
+    <div class="subtitle" id="page-subtitle">Choisis une ville et une période : la courbe retrace le maximum, la moyenne et le minimum, jour après jour.</div>
   </header>
 
   <div class="search-panel">
@@ -333,8 +354,8 @@
   <div class="altitude-prompt" id="altitude-prompt">
     <div class="altitude-prompt-header">
       <div class="altitude-prompt-text">
-        Altitude précise pour <b id="altitude-city-name"></b>
-        <span class="altitude-prompt-sub">(optionnel — corrige la température pour un point en altitude, ex : station de ski, sommet, vallée encaissée)</span>
+        <span id="altitude-prompt-prefix">Altitude précise pour</span> <b id="altitude-city-name"></b>
+        <span class="altitude-prompt-sub" id="altitude-prompt-sub">(optionnel — corrige la température pour un point en altitude, ex : station de ski, sommet, vallée encaissée)</span>
       </div>
       <button class="altitude-close-btn" id="altitude-close-btn" aria-label="Fermer">×</button>
     </div>
@@ -360,7 +381,7 @@
   </div>
 
   <div class="period-panel">
-    <div class="period-label">Période</div>
+    <div class="period-label" id="period-label">Période</div>
     <div class="period-chips" id="period-chips">
       <button class="period-chip" data-preset="7">7 jours</button>
       <button class="period-chip active" data-preset="30">30 jours</button>
@@ -370,7 +391,7 @@
     </div>
     <div class="custom-range" id="custom-range" style="display:none;">
       <div class="date-group">
-        <label>Du</label>
+        <label id="date-from-label">Du</label>
         <div class="date-selects">
           <select class="sel-day" id="start-day"></select>
           <select class="sel-month" id="start-month"></select>
@@ -378,7 +399,7 @@
         </div>
       </div>
       <div class="date-group">
-        <label>Au</label>
+        <label id="date-to-label">Au</label>
         <div class="date-selects">
           <select class="sel-day" id="end-day"></select>
           <select class="sel-month" id="end-month"></select>
@@ -398,7 +419,7 @@
 
   <div class="gauge-panel" id="gauge-panel" style="display:none;">
     <div class="gauge-top">
-      <span class="gauge-title">Amplitude thermique</span>
+      <span class="gauge-title" id="gauge-title">Amplitude thermique</span>
       <span class="gauge-range" id="gauge-dates"></span>
     </div>
     <div class="gauge-track">
@@ -417,37 +438,37 @@
       <canvas id="tempChart"></canvas>
     </div>
     <div class="legend-row" id="chart-legend">
-      <span class="legend-item" data-legend-label="Maximale" style="cursor:pointer;"><span class="legend-dot" style="background:var(--danger)"></span>Maximale</span>
-      <span class="legend-item" data-legend-label="Moyenne" style="cursor:pointer;"><span class="legend-dot" style="background:var(--gold)"></span>Moyenne</span>
-      <span class="legend-item" data-legend-label="Minimale" style="cursor:pointer;"><span class="legend-dot" style="background:var(--azure)"></span>Minimale</span>
-      <span class="legend-item" data-legend-label="Seuil canicule (35°)" style="cursor:pointer;"><span class="legend-dot" style="background:#d62828"></span>Seuil canicule (35°)</span>
-      <span class="legend-item" data-legend-label="Seuil de gel (0°)" style="cursor:pointer;"><span class="legend-dot" style="background:#48cae4"></span>Seuil de gel (0°)</span>
-      <span class="legend-item" data-legend-label="Pression atmosphérique" style="cursor:pointer;"><span class="legend-dot" style="background:#9d4edd"></span>Pression atmosphérique</span>
-      <span class="legend-item" data-legend-label="Qualité de l'air (AQI)" id="legend-aqi" style="cursor:pointer;"><span class="legend-dot" style="background:#52b788"></span>Qualité de l'air (AQI)</span>
-      <span class="legend-item" data-legend-label="Isotherme 0°C (estimée)" id="legend-isotherm" style="cursor:pointer; opacity:0.4; text-decoration:line-through;"><span class="legend-dot" style="background:#90e0ef"></span>Isotherme 0°C (estimée)</span>
+      <span class="legend-item" data-legend-label="Maximale" id="legend-max" style="cursor:pointer;"><span class="legend-dot" style="background:var(--danger)"></span><span class="legend-text">Maximale</span></span>
+      <span class="legend-item" data-legend-label="Moyenne" id="legend-mean" style="cursor:pointer;"><span class="legend-dot" style="background:var(--gold)"></span><span class="legend-text">Moyenne</span></span>
+      <span class="legend-item" data-legend-label="Minimale" id="legend-min" style="cursor:pointer;"><span class="legend-dot" style="background:var(--azure)"></span><span class="legend-text">Minimale</span></span>
+      <span class="legend-item" data-legend-label="Seuil canicule (35°)" id="legend-canicule" style="cursor:pointer;"><span class="legend-dot" style="background:#d62828"></span><span class="legend-text">Seuil canicule (35°)</span></span>
+      <span class="legend-item" data-legend-label="Seuil de gel (0°)" id="legend-gel" style="cursor:pointer;"><span class="legend-dot" style="background:#48cae4"></span><span class="legend-text">Seuil de gel (0°)</span></span>
+      <span class="legend-item" data-legend-label="Pression atmosphérique" id="legend-pressure" style="cursor:pointer;"><span class="legend-dot" style="background:#9d4edd"></span><span class="legend-text">Pression atmosphérique</span></span>
+      <span class="legend-item" data-legend-label="Qualité de l'air (AQI)" id="legend-aqi" style="cursor:pointer;"><span class="legend-dot" style="background:#52b788"></span><span class="legend-text">Qualité de l'air (AQI)</span></span>
+      <span class="legend-item" data-legend-label="Isotherme 0°C (estimée)" id="legend-isotherm" style="cursor:pointer; opacity:0.4; text-decoration:line-through;"><span class="legend-dot" style="background:#90e0ef"></span><span class="legend-text">Isotherme 0°C (estimée)</span></span>
     </div>
     <div id="aqi-unavailable" style="display:none; text-align:center; font-size:12px; opacity:.6; margin-top:6px;">⚠️ Qualité de l'air indisponible pour cette ville ou cette période.</div>
     <div id="aqi-bands-legend" class="legend-row" style="display:none; justify-content:center; margin-top:6px; font-size:11px; opacity:.75;">
-      <span style="opacity:.6;">AQI :</span>
-      <span><span class="legend-dot" style="background:#52b788"></span>Bon (0–20)</span>
-      <span><span class="legend-dot" style="background:#a7c957"></span>Correct (20–40)</span>
-      <span><span class="legend-dot" style="background:#e9c46a"></span>Modéré (40–60)</span>
-      <span><span class="legend-dot" style="background:#f4a261"></span>Médiocre (60–80)</span>
-      <span><span class="legend-dot" style="background:#e76f51"></span>Mauvais (80–100)</span>
-      <span><span class="legend-dot" style="background:#9d0208"></span>Très mauvais (100+)</span>
+      <span id="aqi-bands-prefix" style="opacity:.6;">AQI :</span>
+      <span><span class="legend-dot" style="background:#52b788"></span><span id="aqi-band-good">Bon (0–20)</span></span>
+      <span><span class="legend-dot" style="background:#a7c957"></span><span id="aqi-band-fair">Correct (20–40)</span></span>
+      <span><span class="legend-dot" style="background:#e9c46a"></span><span id="aqi-band-moderate">Modéré (40–60)</span></span>
+      <span><span class="legend-dot" style="background:#f4a261"></span><span id="aqi-band-poor">Médiocre (60–80)</span></span>
+      <span><span class="legend-dot" style="background:#e76f51"></span><span id="aqi-band-bad">Mauvais (80–100)</span></span>
+      <span><span class="legend-dot" style="background:#9d0208"></span><span id="aqi-band-verybad">Très mauvais (100+)</span></span>
     </div>
   </div>
-  <div class="tip" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
-  <div class="tip" style="text-align:center; font-size:12px; opacity:.5; margin-top:4px;">ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.</div>
+  <div class="tip" id="tip-legend" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
+  <div class="tip" id="tip-avg-temp" style="text-align:center; font-size:12px; opacity:.5; margin-top:4px;">ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.</div>
 
   <div class="bulletin" id="bulletin-period"></div>
 
   <div class="cards" id="cards"></div>
 
   <footer>
-    Source : archives climatiques Open-Meteo (ERA5, géocodage sans clé API) · Fuseau horaire local à la ville<br>
-    Le lien partagé conserve ta ville et ta période
-    <div class="tip">
+    <span id="footer-source-line">Source : archives climatiques Open-Meteo (ERA5, géocodage sans clé API) · Fuseau horaire local à la ville<br>
+    Le lien partagé conserve ta ville et ta période</span>
+    <div class="tip" id="footer-tip">
       💡 Astuce — les données récentes sont consolidées avec quelques jours de délai (source ERA5) ;
       pour les tout derniers jours, la moyenne mobile peut encore bouger légèrement une fois les relevés finalisés.
       Le bouton <b>⛰ Altitude</b> à côté du nom de la ville permet de préciser un point à une autre altitude
@@ -475,7 +496,278 @@ const NEIGE_CODES = [71,73,75,77,85,86]; // codes météo WMO correspondant à d
 const BEAU_TEMPS_CODES = [0,1,2]; // ciel clair ou peu nuageux
 const LAG_DAYS = 5; // délai de consolidation des archives climatiques Open-Meteo
 
+// ---------- i18n ----------
+const TRANSLATIONS = {
+  fr: {
+    eyebrow: "relevé climatique — open-meteo",
+    title: "Évolution des températures",
+    subtitle: "Choisis une ville et une période : la courbe retrace le maximum, la moyenne et le minimum, jour après jour.",
+    searchPlaceholder: "Rechercher une ville (ex : Lyon, Tokyo, New York…)",
+    searchLoading: "recherche…",
+    searchNoResults: (q) => `Aucune ville trouvée pour « ${q} ».`,
+    searchError: "Recherche indisponible pour le moment.",
+    altitudePromptPrefix: "Altitude précise pour",
+    altitudePromptSub: "(optionnel — corrige la température pour un point en altitude, ex : station de ski, sommet, vallée encaissée)",
+    altitudeClose: "Fermer",
+    altitudePlaceholder: "Altitude en mètres (ex : 1800)",
+    altitudeSkip: "Continuer sans préciser",
+    altitudeConfirm: "Valider",
+    altitudeModelNote: (m) => `Altitude retenue par le modèle climatique pour ce point : ${m} m.`,
+    altitudeFeedbackError: "Indique une altitude en mètres, ou clique « Continuer sans préciser ».",
+    altitudeFeedbackApplied: (m) => `Altitude de ${m} m appliquée aux calculs.`,
+    altitudeBadge: (m) => `⛰ ${m} m (précisée)`,
+    altEditBtn: "⛰ Altitude",
+    periodLabel: "Période",
+    period7: "7 jours", period30: "30 jours", period90: "3 mois", period365: "1 an", periodCustom: "Personnalisé",
+    dateFrom: "Du", dateTo: "Au",
+    shareBtn: "🔗 Copier le lien",
+    shareCopied: "✓ Lien copié",
+    refreshBtn: "↻ Actualiser",
+    gaugeTitle: "Amplitude thermique",
+    gaugeAvgSuffix: "moy.",
+    chartStatusDefault: "Recherche une ville pour démarrer.",
+    chartStatusLoading: (city) => `Chargement des relevés pour ${city}…`,
+    chartStatusInvalidPeriod: "Choisis une période valide (date de début avant la date de fin).",
+    chartStatusNoData: "Aucune donnée disponible pour cette période.",
+    chartStatusNoUsableData: "Aucune donnée exploitable pour cette période.",
+    chartStatusError: (msg) => `Impossible de charger les données (${msg})`,
+    updatedAt: (time) => `mis à jour à ${time}`,
+    labelMax: "Maximale", labelMean: "Moyenne", labelMin: "Minimale",
+    labelCaniculeThreshold: (c) => `Seuil canicule (${c}°)`,
+    labelGelThreshold: (g) => `Seuil de gel (${g}°)`,
+    labelPressure: "Pression atmosphérique",
+    labelAqi: "Qualité de l'air (AQI)",
+    labelAqiThreshold: (a) => `Seuil AQI (${a})`,
+    labelIsotherm: "Isotherme 0°C (estimée)",
+    aqiUnavailable: "⚠️ Qualité de l'air indisponible pour cette ville ou cette période.",
+    aqiBandsPrefix: "AQI :",
+    aqiBandGood: "Bon (0–20)", aqiBandFair: "Correct (20–40)", aqiBandModerate: "Modéré (40–60)",
+    aqiBandPoor: "Médiocre (60–80)", aqiBandBad: "Mauvais (80–100)", aqiBandVeryBad: "Très mauvais (100+)",
+    tipLegend: "💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.",
+    tipAvgTemp: "ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.",
+    footerSource: "Source : archives climatiques Open-Meteo (ERA5, géocodage sans clé API) · Fuseau horaire local à la ville",
+    footerShareNote: "Le lien partagé conserve ta ville et ta période",
+    footerTip: "💡 Astuce — les données récentes sont consolidées avec quelques jours de délai (source ERA5) ; pour les tout derniers jours, la moyenne mobile peut encore bouger légèrement une fois les relevés finalisés. Le bouton <b>⛰ Altitude</b> à côté du nom de la ville permet de préciser un point à une autre altitude (station de ski, sommet…) : la température est alors recalculée pour cette altitude. La courbe <b>Isotherme 0°C</b> (masquée par défaut, à activer dans la légende) est une estimation à partir de la température moyenne du jour ; une valeur négative signifie simplement que le 0°C théorique se situe sous le niveau de la mer, un jour très froid.",
+    moonLabels: ["Nouvelle lune","Premier croissant","Premier quartier","Lune gibbeuse croissante","Pleine lune","Lune gibbeuse décroissante","Dernier quartier","Dernier croissant"],
+    months: ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"],
+    compassDirs: ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],
+    cardHottestDay: "Journée la plus chaude",
+    cardColdestDay: "Journée la plus froide",
+    cardHumidity: "humidité", cardWind: "vent",
+    cardAvgOverPeriod: "Moyenne sur la période",
+    cardOverNDays: (n) => `sur ${n} jour${n>1?"s":""}`,
+    cardThermalRange: "Écart thermique",
+    cardMaxMinusMin: "max − min",
+    cardCaniculeDays: "Jours de canicule",
+    cardCaniculeSub: (c, n) => `max ≥ ${c}° sur ${n} jour${n>1?"s":""}`,
+    cardGelDays: "Jours de gel",
+    cardGelSub: (g, n) => `min ≤ ${g}° sur ${n} jour${n>1?"s":""}`,
+    cardRainDays: "Jours de pluie",
+    cardRainSub: (p, n) => `≥ ${p} mm, sous l'isotherme 0° · sur ${n} jour${n>1?"s":""}`,
+    cardWindDays: "Jours de vent fort",
+    cardWindSub: (v, n) => `rafales ≥ ${v} km/h sur ${n} jour${n>1?"s":""}`,
+    cardAqiDaysTitle: (a) => `Jours AQI > ${a}`,
+    cardAqiSub: (n) => `qualité de l'air dégradée · sur ${n} jour${n>1?"s":""}`,
+    cardAqiUnavailable: "donnée AQI indisponible",
+    cardSnowDays: "Jours de neige",
+    cardSnowSub: (n) => `altitude ≥ isotherme 0° · sur ${n} jour${n>1?"s":""}`,
+    cardFairDays: "Jours de beau temps",
+    cardFairSub: (n) => `ciel clair ou peu nuageux sur ${n} jour${n>1?"s":""}`,
+    periodTextPreset7: "sur les 7 derniers jours",
+    periodTextPreset30: "sur les 30 derniers jours",
+    periodTextPreset90: "sur les 3 derniers mois",
+    periodTextPreset365: "sur les 12 derniers mois",
+    periodTextCustom: (s, e) => `du ${s} au ${e}`,
+    bulletinHeader: (label) => `📅 bulletin — ${label}`,
+    bulletinSummary: (city, min, max, label) => `${city} a oscillé entre ${min}°C et ${max}°C ${label}`,
+    bulletinSummaryAvg: (avg) => `, avec une moyenne de ${avg}°C`,
+    bulletinSummaryEnd: (maxDate, minDate) => `. Le pic de chaleur a été relevé le ${maxDate}, le point le plus froid le ${minDate}.`,
+    bulletinCaniculeAlert: (n, c, label) => `${n} jour${n>1?"s":""} de canicule (≥${c}°C) ${label}.`,
+    bulletinGelAlert: (n, g, label) => `${n} jour${n>1?"s":""} de gel (≤${g}°C) ${label}.`,
+    bulletinAqiAlert: (n, a, label) => `${n} jour${n>1?"s":""} avec une qualité de l'air dégradée (AQI > ${a}) ${label}.`,
+    bulletinVentAlert: (n, v, label) => `${n} jour${n>1?"s":""} de vent fort (rafales ≥${v} km/h) ${label}.`,
+  },
+  en: {
+    eyebrow: "climate record — open-meteo",
+    title: "Temperature history",
+    subtitle: "Pick a city and a period: the chart traces the max, average, and min, day by day.",
+    searchPlaceholder: "Search for a city (e.g. Lyon, Tokyo, New York…)",
+    searchLoading: "searching…",
+    searchNoResults: (q) => `No city found for "${q}".`,
+    searchError: "Search unavailable right now.",
+    altitudePromptPrefix: "Precise altitude for",
+    altitudePromptSub: "(optional — corrects the temperature for a point at altitude, e.g. a ski resort, summit, or deep valley)",
+    altitudeClose: "Close",
+    altitudePlaceholder: "Altitude in meters (e.g. 1800)",
+    altitudeSkip: "Continue without specifying",
+    altitudeConfirm: "Confirm",
+    altitudeModelNote: (m) => `Altitude used by the climate model for this point: ${m} m.`,
+    altitudeFeedbackError: "Enter an altitude in meters, or click \"Continue without specifying\".",
+    altitudeFeedbackApplied: (m) => `Altitude of ${m} m applied to the calculations.`,
+    altitudeBadge: (m) => `⛰ ${m} m (custom)`,
+    altEditBtn: "⛰ Altitude",
+    periodLabel: "Period",
+    period7: "7 days", period30: "30 days", period90: "3 months", period365: "1 year", periodCustom: "Custom",
+    dateFrom: "From", dateTo: "To",
+    shareBtn: "🔗 Copy link",
+    shareCopied: "✓ Link copied",
+    refreshBtn: "↻ Refresh",
+    gaugeTitle: "Temperature range",
+    gaugeAvgSuffix: "avg",
+    chartStatusDefault: "Search for a city to get started.",
+    chartStatusLoading: (city) => `Loading readings for ${city}…`,
+    chartStatusInvalidPeriod: "Choose a valid period (start date before end date).",
+    chartStatusNoData: "No data available for this period.",
+    chartStatusNoUsableData: "No usable data for this period.",
+    chartStatusError: (msg) => `Unable to load data (${msg})`,
+    updatedAt: (time) => `updated at ${time}`,
+    labelMax: "Maximum", labelMean: "Average", labelMin: "Minimum",
+    labelCaniculeThreshold: (c) => `Heatwave threshold (${c}°)`,
+    labelGelThreshold: (g) => `Frost threshold (${g}°)`,
+    labelPressure: "Atmospheric pressure",
+    labelAqi: "Air quality (AQI)",
+    labelAqiThreshold: (a) => `AQI threshold (${a})`,
+    labelIsotherm: "0°C isotherm (estimated)",
+    aqiUnavailable: "⚠️ Air quality unavailable for this city or period.",
+    aqiBandsPrefix: "AQI:",
+    aqiBandGood: "Good (0–20)", aqiBandFair: "Fair (20–40)", aqiBandModerate: "Moderate (40–60)",
+    aqiBandPoor: "Poor (60–80)", aqiBandBad: "Bad (80–100)", aqiBandVeryBad: "Very bad (100+)",
+    tipLegend: "💡 Click a legend item to show or hide the matching line.",
+    tipAvgTemp: "ℹ️ The average temperature is the mean of the day's 24 hourly readings (not (max + min) / 2), as computed by Open-Meteo.",
+    footerSource: "Source: Open-Meteo climate archives (ERA5, geocoding without an API key) · Local time zone for the city",
+    footerShareNote: "The shared link keeps your city and period",
+    footerTip: "💡 Tip — recent data is consolidated with a few days' delay (ERA5 source); for the very latest days, the moving average can still shift slightly once readings are finalized. The <b>⛰ Altitude</b> button next to the city name lets you specify a point at a different altitude (ski resort, summit…): the temperature is then recalculated for that altitude. The <b>0°C isotherm</b> line (hidden by default, enable it in the legend) is estimated from the day's average temperature; a negative value simply means the theoretical 0°C level sits below sea level — a very cold day.",
+    moonLabels: ["New moon","Waxing crescent","First quarter","Waxing gibbous","Full moon","Waning gibbous","Last quarter","Waning crescent"],
+    months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+    compassDirs: ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],
+    cardHottestDay: "Hottest day",
+    cardColdestDay: "Coldest day",
+    cardHumidity: "humidity", cardWind: "wind",
+    cardAvgOverPeriod: "Average over the period",
+    cardOverNDays: (n) => `over ${n} day${n>1?"s":""}`,
+    cardThermalRange: "Thermal range",
+    cardMaxMinusMin: "max − min",
+    cardCaniculeDays: "Heatwave days",
+    cardCaniculeSub: (c, n) => `max ≥ ${c}° over ${n} day${n>1?"s":""}`,
+    cardGelDays: "Frost days",
+    cardGelSub: (g, n) => `min ≤ ${g}° over ${n} day${n>1?"s":""}`,
+    cardRainDays: "Rainy days",
+    cardRainSub: (p, n) => `≥ ${p} mm, below the 0° isotherm · over ${n} day${n>1?"s":""}`,
+    cardWindDays: "Strong wind days",
+    cardWindSub: (v, n) => `gusts ≥ ${v} km/h over ${n} day${n>1?"s":""}`,
+    cardAqiDaysTitle: (a) => `Days with AQI > ${a}`,
+    cardAqiSub: (n) => `degraded air quality · over ${n} day${n>1?"s":""}`,
+    cardAqiUnavailable: "AQI data unavailable",
+    cardSnowDays: "Snow days",
+    cardSnowSub: (n) => `altitude ≥ 0° isotherm · over ${n} day${n>1?"s":""}`,
+    cardFairDays: "Fair-weather days",
+    cardFairSub: (n) => `clear or mostly clear sky over ${n} day${n>1?"s":""}`,
+    periodTextPreset7: "over the last 7 days",
+    periodTextPreset30: "over the last 30 days",
+    periodTextPreset90: "over the last 3 months",
+    periodTextPreset365: "over the last 12 months",
+    periodTextCustom: (s, e) => `from ${s} to ${e}`,
+    bulletinHeader: (label) => `📅 bulletin — ${label}`,
+    bulletinSummary: (city, min, max, label) => `${city} ranged between ${min}°C and ${max}°C ${label}`,
+    bulletinSummaryAvg: (avg) => `, averaging ${avg}°C`,
+    bulletinSummaryEnd: (maxDate, minDate) => `. The heat peak was recorded on ${maxDate}, the coldest point on ${minDate}.`,
+    bulletinCaniculeAlert: (n, c, label) => `${n} heatwave day${n>1?"s":""} (≥${c}°C) ${label}.`,
+    bulletinGelAlert: (n, g, label) => `${n} frost day${n>1?"s":""} (≤${g}°C) ${label}.`,
+    bulletinAqiAlert: (n, a, label) => `${n} day${n>1?"s":""} with degraded air quality (AQI > ${a}) ${label}.`,
+    bulletinVentAlert: (n, v, label) => `${n} strong-wind day${n>1?"s":""} (gusts ≥${v} km/h) ${label}.`,
+  },
+};
+
+let lang = localStorage.getItem("evolution-lang") || (navigator.language && navigator.language.startsWith("en") ? "en" : "fr");
+
+function t(key, ...args){
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.fr;
+  const entry = dict[key] !== undefined ? dict[key] : TRANSLATIONS.fr[key];
+  return typeof entry === "function" ? entry(...args) : entry;
+}
+
+function applyStaticTranslations(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll(".lang-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  document.getElementById("eyebrow").innerHTML = `<span class="pulse"></span> ${t("eyebrow")}`;
+  document.getElementById("page-title").textContent = t("title");
+  document.getElementById("page-subtitle").textContent = t("subtitle");
+  const searchInputEl = document.getElementById("search-input");
+  if(searchInputEl) searchInputEl.placeholder = t("searchPlaceholder");
+  const searchLoadingEl = document.getElementById("search-loading");
+  if(searchLoadingEl) searchLoadingEl.textContent = t("searchLoading");
+  const altPrefix = document.getElementById("altitude-prompt-prefix");
+  if(altPrefix) altPrefix.textContent = t("altitudePromptPrefix");
+  const altSub = document.getElementById("altitude-prompt-sub");
+  if(altSub) altSub.textContent = t("altitudePromptSub");
+  document.getElementById("altitude-close-btn").setAttribute("aria-label", t("altitudeClose"));
+  document.getElementById("altitude-input").placeholder = t("altitudePlaceholder");
+  document.getElementById("altitude-skip-btn").textContent = t("altitudeSkip");
+  document.getElementById("altitude-confirm-btn").textContent = t("altitudeConfirm");
+  document.getElementById("alt-edit-btn").textContent = t("altEditBtn");
+  document.getElementById("period-label").textContent = t("periodLabel");
+  const presetMap = { "7":"period7", "30":"period30", "90":"period90", "365":"period365", "custom":"periodCustom" };
+  document.querySelectorAll(".period-chip").forEach(chip => {
+    chip.textContent = t(presetMap[chip.dataset.preset]);
+  });
+  document.getElementById("date-from-label").textContent = t("dateFrom");
+  document.getElementById("date-to-label").textContent = t("dateTo");
+  document.getElementById("share-btn").textContent = t("shareBtn");
+  document.getElementById("refresh-btn").textContent = t("refreshBtn");
+  document.getElementById("gauge-title").textContent = t("gaugeTitle");
+  if(!currentCityLoaded){
+    document.getElementById("chart-status").textContent = t("chartStatusDefault");
+  }
+  const legendMap = {
+    "legend-max": "labelMax", "legend-mean": "labelMean", "legend-min": "labelMin",
+    "legend-pressure": "labelPressure", "legend-aqi": "labelAqi", "legend-isotherm": "labelIsotherm",
+  };
+  Object.keys(legendMap).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const label = t(legendMap[id]);
+    el.dataset.legendLabel = label;
+    el.querySelector(".legend-text").textContent = label;
+  });
+  const caniculeLegend = document.getElementById("legend-canicule");
+  if(caniculeLegend){
+    const label = t("labelCaniculeThreshold", CANICULE_SEUIL);
+    caniculeLegend.dataset.legendLabel = label;
+    caniculeLegend.querySelector(".legend-text").textContent = label;
+  }
+  const gelLegend = document.getElementById("legend-gel");
+  if(gelLegend){
+    const label = t("labelGelThreshold", GEL_SEUIL);
+    gelLegend.dataset.legendLabel = label;
+    gelLegend.querySelector(".legend-text").textContent = label;
+  }
+  document.getElementById("aqi-unavailable").textContent = t("aqiUnavailable");
+  document.getElementById("aqi-bands-prefix").textContent = t("aqiBandsPrefix");
+  document.getElementById("aqi-band-good").textContent = t("aqiBandGood");
+  document.getElementById("aqi-band-fair").textContent = t("aqiBandFair");
+  document.getElementById("aqi-band-moderate").textContent = t("aqiBandModerate");
+  document.getElementById("aqi-band-poor").textContent = t("aqiBandPoor");
+  document.getElementById("aqi-band-bad").textContent = t("aqiBandBad");
+  document.getElementById("aqi-band-verybad").textContent = t("aqiBandVeryBad");
+  document.getElementById("tip-legend").textContent = t("tipLegend");
+  document.getElementById("tip-avg-temp").textContent = t("tipAvgTemp");
+  document.getElementById("footer-source-line").innerHTML = `${t("footerSource")}<br>${t("footerShareNote")}`;
+  document.getElementById("footer-tip").innerHTML = t("footerTip");
+  renderCurrentCity();
+  refreshDateSelectMonths();
+}
+
+function setLang(newLang){
+  if(newLang !== "fr" && newLang !== "en") return;
+  if(newLang === lang) return;
+  lang = newLang;
+  localStorage.setItem("evolution-lang", lang);
+  applyStaticTranslations();
+  if(currentCityLoaded) loadAndRender();
+}
+
 let currentCity = { name:"Paris", admin1:"Île-de-France", country:"France", lat:48.8566, lon:2.3522 };
+let currentCityLoaded = false;
 let periodPreset = "30";
 let chart;
 let debounceTimer;
@@ -537,12 +829,12 @@ document.addEventListener("click", (e) => {
 
 async function runSearch(q){
   try{
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=fr&format=json`);
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=${lang}&format=json`);
     const data = await res.json();
     loadingEl.style.display = "none";
     const list = data.results || [];
     if(!list.length){
-      resultsEl.innerHTML = `<div class="result-empty">Aucune ville trouvée pour « ${q} ».</div>`;
+      resultsEl.innerHTML = `<div class="result-empty">${t("searchNoResults", q)}</div>`;
     } else {
       resultsEl.innerHTML = list.map((r,i) => `
         <div class="result-item" data-index="${i}">
@@ -557,7 +849,7 @@ async function runSearch(q){
     resultsEl.style.display = "block";
   }catch(e){
     loadingEl.style.display = "none";
-    resultsEl.innerHTML = `<div class="result-empty">Recherche indisponible pour le moment.</div>`;
+    resultsEl.innerHTML = `<div class="result-empty">${t("searchError")}</div>`;
     resultsEl.style.display = "block";
   }
 }
@@ -582,7 +874,7 @@ function renderCurrentCity(){
   document.getElementById("current-city-coords").textContent = `${currentCity.lat.toFixed(2)}°, ${currentCity.lon.toFixed(2)}°`;
   const badge = document.getElementById("current-city-altitude");
   if(currentCity.elevation !== null && currentCity.elevation !== undefined){
-    badge.textContent = `⛰ ${currentCity.elevation} m (précisée)`;
+    badge.textContent = t("altitudeBadge", currentCity.elevation);
     badge.style.display = "inline-flex";
   } else {
     badge.style.display = "none";
@@ -598,7 +890,7 @@ function openAltitudePrompt(){
   document.getElementById("altitude-city-name").textContent = currentCity.name;
   const modelNoteEl = document.getElementById("altitude-model-note");
   modelNoteEl.textContent = (currentCity.modelElevation !== null && currentCity.modelElevation !== undefined)
-    ? `Altitude retenue par le modèle climatique pour ce point : ${Math.round(currentCity.modelElevation)} m.`
+    ? t("altitudeModelNote", Math.round(currentCity.modelElevation))
     : "";
   altitudeInputEl.value = (currentCity.elevation !== null && currentCity.elevation !== undefined) ? currentCity.elevation : "";
   altitudeFeedbackEl.textContent = "";
@@ -617,12 +909,12 @@ document.getElementById("altitude-skip-btn").addEventListener("click", () => {
 document.getElementById("altitude-confirm-btn").addEventListener("click", () => {
   const val = parseFloat(altitudeInputEl.value);
   if(isNaN(val)){
-    altitudeFeedbackEl.textContent = "Indique une altitude en mètres, ou clique « Continuer sans préciser ».";
+    altitudeFeedbackEl.textContent = t("altitudeFeedbackError");
     altitudeFeedbackEl.style.color = "var(--danger)";
     return;
   }
   currentCity.elevation = Math.round(val);
-  altitudeFeedbackEl.textContent = `Altitude de ${currentCity.elevation} m appliquée aux calculs.`;
+  altitudeFeedbackEl.textContent = t("altitudeFeedbackApplied", currentCity.elevation);
   altitudeFeedbackEl.style.color = "var(--live)";
   renderCurrentCity();
   loadAndRender();
@@ -634,6 +926,16 @@ const periodChipsEl = document.getElementById("period-chips");
 const customRangeEl = document.getElementById("custom-range");
 
 const MONTHS_FR = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+
+function refreshDateSelectMonths(){
+  ["start", "end"].forEach(prefix => {
+    const monthSel = document.getElementById(prefix + "-month");
+    if(!monthSel) return;
+    const prevValue = monthSel.value;
+    monthSel.innerHTML = t("months").map((m, i) => `<option value="${i}">${m}</option>`).join("");
+    monthSel.value = prevValue;
+  });
+}
 const ARCHIVE_MIN_YEAR = 1940; // début des archives climatiques ERA5
 
 function daysInMonth(year, month){ return new Date(year, month + 1, 0).getDate(); } // month: 0-11
@@ -644,7 +946,7 @@ function buildDateSelects(prefix){
   const yearSel = document.getElementById(prefix + "-year");
   const maxYear = todayMinusLag().getFullYear();
 
-  monthSel.innerHTML = MONTHS_FR.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  monthSel.innerHTML = t("months").map((m, i) => `<option value="${i}">${m}</option>`).join("");
   // Années les plus récentes en premier : plus rapide pour la plupart des usages,
   // et taper "19" ou "1950" au clavier saute directement à l'année ancienne voulue.
   let yearOpts = "";
@@ -730,10 +1032,10 @@ const cardsEl = document.getElementById("cards");
 const gaugePanelEl = document.getElementById("gauge-panel");
 
 function formatShort(iso){
-  return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day:"numeric", month:"short" });
+  return new Date(iso + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day:"numeric", month:"short" });
 }
 function formatLong(iso){
-  return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  return new Date(iso + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day:"numeric", month:"long", year:"numeric" });
 }
 
 let requestId = 0;
@@ -752,7 +1054,6 @@ function weatherEmoji(code){
 
 // Phase lunaire — calcul astronomique local, sans appel réseau, valable pour toute date passée ou future.
 const MOON_ICONS = ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
-const MOON_LABELS = ["Nouvelle lune","Premier croissant","Premier quartier","Lune gibbeuse croissante","Pleine lune","Lune gibbeuse décroissante","Dernier quartier","Dernier croissant"];
 function moonPhase(dateStr){
   const date = new Date(dateStr + "T12:00:00Z"); // midi UTC pour éviter les effets de fuseau horaire
   const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14, 0); // nouvelle lune de référence
@@ -761,12 +1062,12 @@ function moonPhase(dateStr){
   let phase = (diffDays % synodicMonth) / synodicMonth;
   if(phase < 0) phase += 1;
   const index = Math.round(phase * 8) % 8;
-  return { emoji: MOON_ICONS[index], label: MOON_LABELS[index] };
+  return { emoji: MOON_ICONS[index], label: t("moonLabels")[index] };
 }
 
 function degToCompass(deg){
   if(deg == null) return null;
-  const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
+  const dirs = t("compassDirs");
   const idx = Math.round(deg / 22.5) % 16;
   return dirs[idx];
 }
@@ -803,15 +1104,16 @@ async function fetchDayDetails(date, elevationParam, mode){
 }
 
 async function loadAndRender(){
+  currentCityLoaded = true;
   const { start, end } = getRange();
   if(new Date(start) >= new Date(end)){
     chartStatusEl.style.display = "flex";
-    chartStatusEl.textContent = "Choisis une période valide (date de début avant la date de fin).";
+    chartStatusEl.textContent = t("chartStatusInvalidPeriod");
     return;
   }
   const myId = ++requestId;
   chartStatusEl.style.display = "flex";
-  chartStatusEl.textContent = `Chargement des relevés pour ${currentCity.name}…`;
+  chartStatusEl.textContent = t("chartStatusLoading", currentCity.name);
   gaugePanelEl.style.display = "none";
   cardsEl.innerHTML = "";
   document.getElementById("bulletin-period").innerHTML = "";
@@ -826,7 +1128,7 @@ async function loadAndRender(){
 
     if(!data.daily || !data.daily.time){
       chartStatusEl.style.display = "flex";
-      chartStatusEl.textContent = "Aucune donnée disponible pour cette période.";
+      chartStatusEl.textContent = t("chartStatusNoData");
       if(chart){ chart.destroy(); chart = null; }
       return;
     }
@@ -892,7 +1194,7 @@ async function loadAndRender(){
 
     if(!rows.length){
       chartStatusEl.style.display = "flex";
-      chartStatusEl.textContent = "Aucune donnée exploitable pour cette période.";
+      chartStatusEl.textContent = t("chartStatusNoUsableData");
       if(chart){ chart.destroy(); chart = null; }
       return;
     }
@@ -904,12 +1206,12 @@ async function loadAndRender(){
 
     const now = new Date();
     document.getElementById("updated-at").textContent =
-      "mis à jour à " + now.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+      t("updatedAt", now.toLocaleTimeString(lang === "en" ? "en-US" : "fr-FR", {hour:"2-digit", minute:"2-digit"}));
 
   }catch(err){
     if(myId !== requestId) return;
     chartStatusEl.style.display = "flex";
-    chartStatusEl.textContent = "Impossible de charger les données (" + err.message + ")";
+    chartStatusEl.textContent = t("chartStatusError", err.message);
   }
 }
 
@@ -928,7 +1230,7 @@ const aqiBandsPlugin = {
     const { ctx, chartArea, scales } = chart;
     const y2 = scales.y2;
     if(!y2 || !chart.options.scales.y2.display) return;
-    const aqiIndex = chart.data.datasets.findIndex(ds => ds.label === "Qualité de l'air (AQI)");
+    const aqiIndex = chart.data.datasets.findIndex(ds => ds.label === t("labelAqi"));
     if(aqiIndex < 0) return;
     const meta = chart.getDatasetMeta(aqiIndex);
     if(meta.hidden) return;
@@ -963,7 +1265,7 @@ function renderChart(rows){
   const labels = rows.map(r => r.date);
   if(chart) chart.destroy();
   document.querySelectorAll("#chart-legend .legend-item").forEach(item => {
-    const isIsotherm = item.dataset.legendLabel === "Isotherme 0°C (estimée)";
+    const isIsotherm = item.dataset.legendLabel === t("labelIsotherm");
     const hiddenByDefault = isIsotherm && !showIsotherm;
     item.style.opacity = hiddenByDefault ? 0.4 : 1;
     item.style.textDecoration = hiddenByDefault ? "line-through" : "none";
@@ -974,15 +1276,15 @@ function renderChart(rows){
     data: {
       labels,
       datasets: [
-        { label:"Maximale", data: rows.map(r=>r.max), borderColor: PALETTE.max, backgroundColor: PALETTE.max, pointRadius:0, borderWidth:2, tension:0.3 },
-        { label:"Moyenne", data: rows.map(r=>r.mean), borderColor: PALETTE.mean, backgroundColor: PALETTE.mean, pointRadius:0, borderWidth:1.5, borderDash:[4,3], tension:0.3 },
-        { label:"Minimale", data: rows.map(r=>r.min), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
-        { label:`Seuil canicule (${CANICULE_SEUIL}°)`, data: labels.map(()=>CANICULE_SEUIL), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
-        { label:`Seuil de gel (${GEL_SEUIL}°)`, data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
-        { label:"Pression atmosphérique", data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
-        { label:"Qualité de l'air (AQI)", data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
-        { label:`Seuil AQI (${AQI_SEUIL})`, data: labels.map(()=>AQI_SEUIL), borderColor:"#52b788", backgroundColor:"#52b788", pointRadius:0, borderWidth:1.5, borderDash:[6,4], tension:0, yAxisID:"y2", hidden: !rows.some(r => r.aqi !== null) },
-        { label:"Isotherme 0°C (estimée)", data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
+        { label:t("labelMax"), data: rows.map(r=>r.max), borderColor: PALETTE.max, backgroundColor: PALETTE.max, pointRadius:0, borderWidth:2, tension:0.3 },
+        { label:t("labelMean"), data: rows.map(r=>r.mean), borderColor: PALETTE.mean, backgroundColor: PALETTE.mean, pointRadius:0, borderWidth:1.5, borderDash:[4,3], tension:0.3 },
+        { label:t("labelMin"), data: rows.map(r=>r.min), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
+        { label:t("labelCaniculeThreshold", CANICULE_SEUIL), data: labels.map(()=>CANICULE_SEUIL), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:t("labelGelThreshold", GEL_SEUIL), data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:t("labelPressure"), data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
+        { label:t("labelAqi"), data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
+        { label:t("labelAqiThreshold", AQI_SEUIL), data: labels.map(()=>AQI_SEUIL), borderColor:"#52b788", backgroundColor:"#52b788", pointRadius:0, borderWidth:1.5, borderDash:[6,4], tension:0, yAxisID:"y2", hidden: !rows.some(r => r.aqi !== null) },
+        { label:t("labelIsotherm"), data: rows.map(r=>r.freezingLevel), borderColor: PALETTE.isotherm, backgroundColor: PALETTE.isotherm, pointRadius:0, borderWidth:1.5, borderDash:[2,3], tension:0.3, yAxisID:"y3", hidden: !showIsotherm },
       ],
     },
     options: {
@@ -994,15 +1296,15 @@ function renderChart(rows){
           backgroundColor:"#132539", borderColor:"#22384f", borderWidth:1,
           titleFont:{ family:"Space Grotesk" }, bodyFont:{ family:"IBM Plex Mono", size:12 },
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
-          filter: (item) => item.dataset.label !== `Seuil canicule (${CANICULE_SEUIL}°)` && item.dataset.label !== `Seuil de gel (${GEL_SEUIL}°)`,
+          filter: (item) => item.dataset.label !== t("labelCaniculeThreshold", CANICULE_SEUIL) && item.dataset.label !== t("labelGelThreshold", GEL_SEUIL),
           callbacks:{
             title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${moonPhase(rows[items[0].dataIndex].date).emoji} ${formatLong(items[0].label)}`,
             afterTitle: (items) => moonPhase(rows[items[0].dataIndex].date).label,
-            label: (item) => item.dataset.label === "Pression atmosphérique"
+            label: (item) => item.dataset.label === t("labelPressure")
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) + " hPa" : "—"}`
-              : (item.dataset.label === "Qualité de l'air (AQI)" || item.dataset.label === `Seuil AQI (${AQI_SEUIL})`)
+              : (item.dataset.label === t("labelAqi") || item.dataset.label === t("labelAqiThreshold", AQI_SEUIL))
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
-              : item.dataset.label === "Isotherme 0°C (estimée)"
+              : item.dataset.label === t("labelIsotherm")
               ? `${item.dataset.label} : ${item.raw !== null ? formatIsotherm(item.raw) : "—"}`
               : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
           }
@@ -1052,11 +1354,11 @@ function renderChart(rows){
 
 // Libellé de la période affichée, pour le bulletin
 function periodLabel(start, end){
-  if(periodPreset === "7") return "sur les 7 derniers jours";
-  if(periodPreset === "30") return "sur les 30 derniers jours";
-  if(periodPreset === "90") return "sur les 3 derniers mois";
-  if(periodPreset === "365") return "sur les 12 derniers mois";
-  return `du ${formatShort(start)} au ${formatShort(end)}`;
+  if(periodPreset === "7") return t("periodTextPreset7");
+  if(periodPreset === "30") return t("periodTextPreset30");
+  if(periodPreset === "90") return t("periodTextPreset90");
+  if(periodPreset === "365") return t("periodTextPreset365");
+  return t("periodTextCustom", formatShort(start), formatShort(end));
 }
 
 // Bulletin texte synthétisant la période sélectionnée — réutilise les statistiques déjà
@@ -1069,24 +1371,24 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
   const label = periodLabel(start, end);
   const cityLabel = currentCity.name + (currentCity.admin1 ? `, ${currentCity.admin1}` : "");
 
-  let summaryText = `${cityLabel} a oscillé entre ${minRow.min.toFixed(1)}°C et ${maxRow.max.toFixed(1)}°C ${label}`;
+  let summaryText = t("bulletinSummary", cityLabel, minRow.min.toFixed(1), maxRow.max.toFixed(1), label);
   if(avg !== null){
-    summaryText += `, avec une moyenne de ${avg.toFixed(1)}°C`;
+    summaryText += t("bulletinSummaryAvg", avg.toFixed(1));
   }
-  summaryText += `. Le pic de chaleur a été relevé le ${formatLong(maxRow.date)}, le point le plus froid le ${formatLong(minRow.date)}.`;
+  summaryText += t("bulletinSummaryEnd", formatLong(maxRow.date), formatLong(minRow.date));
 
   const alerts = [];
   if(caniculeDays > 0){
-    alerts.push({ type:"canicule", icon:"🔥", text:`${caniculeDays} jour${caniculeDays>1?"s":""} de canicule (≥${CANICULE_SEUIL}°C) ${label}.` });
+    alerts.push({ type:"canicule", icon:"🔥", text:t("bulletinCaniculeAlert", caniculeDays, CANICULE_SEUIL, label) });
   }
   if(gelDays > 0){
-    alerts.push({ type:"gel", icon:"❄️", text:`${gelDays} jour${gelDays>1?"s":""} de gel (≤${GEL_SEUIL}°C) ${label}.` });
+    alerts.push({ type:"gel", icon:"❄️", text:t("bulletinGelAlert", gelDays, GEL_SEUIL, label) });
   }
   if(aqiDaysAvailable && aqiDays > 0){
-    alerts.push({ type:"pollution", icon:"🌫️", text:`${aqiDays} jour${aqiDays>1?"s":""} avec une qualité de l'air dégradée (AQI > ${AQI_SEUIL}) ${label}.` });
+    alerts.push({ type:"pollution", icon:"🌫️", text:t("bulletinAqiAlert", aqiDays, AQI_SEUIL, label) });
   }
   if(ventDays > 0){
-    alerts.push({ type:"vent", icon:"💨", text:`${ventDays} jour${ventDays>1?"s":""} de vent fort (rafales ≥${VENT_SEUIL} km/h) ${label}.` });
+    alerts.push({ type:"vent", icon:"💨", text:t("bulletinVentAlert", ventDays, VENT_SEUIL, label) });
   }
 
   const alertsHtml = alerts.length
@@ -1096,7 +1398,7 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
     : "";
 
   el.innerHTML = `
-    <div class="bulletin-header">📅 bulletin — ${label}</div>
+    <div class="bulletin-header">${t("bulletinHeader", label)}</div>
     <div class="bulletin-summary">${summaryText}</div>
     ${alertsHtml}
   `;
@@ -1147,79 +1449,79 @@ function renderStats(rows, start, end){
   const altSuffix = (currentCity.elevation !== null && currentCity.elevation !== undefined) ? ` · altitude ${currentCity.elevation} m` : "";
   document.getElementById("gauge-dates").textContent = `${formatShort(start)} — ${formatShort(end)}${altSuffix}`;
   document.getElementById("gauge-min").textContent = `${minRow.min.toFixed(1)}°`;
-  document.getElementById("gauge-avg").textContent = avg !== null ? `${avg.toFixed(1)}° moy.` : "—";
+  document.getElementById("gauge-avg").textContent = avg !== null ? `${avg.toFixed(1)}° ${t("gaugeAvgSuffix")}` : "—";
   document.getElementById("gauge-max").textContent = `${maxRow.max.toFixed(1)}°`;
   const pos = avg !== null ? Math.min(100, Math.max(0, ((avg - minRow.min) / amplitude) * 100)) : 50;
   document.getElementById("gauge-marker").style.left = `calc(${pos}% - 2px)`;
 
   cardsEl.innerHTML = `
     <div class="card" style="--accent:${PALETTE.max}">
-      <div class="card-label">Journée la plus chaude</div>
+      <div class="card-label">${t("cardHottestDay")}</div>
       <div class="card-value-row">
         <span class="card-icon">${weatherEmoji(maxRow.weatherCode)}</span>
         <div class="card-value" style="color:${PALETTE.max}">${maxRow.max.toFixed(1)}°</div>
       </div>
       <div class="card-sub">${formatLong(maxRow.date)}<span id="hour-max"></span></div>
-      <div class="card-humidity" id="hum-max">💧 humidité <b>…</b></div>
-      <div class="card-wind" id="wind-max">💨 vent <b>…</b></div>
+      <div class="card-humidity" id="hum-max">💧 ${t("cardHumidity")} <b>…</b></div>
+      <div class="card-wind" id="wind-max">💨 ${t("cardWind")} <b>…</b></div>
     </div>
     <div class="card" style="--accent:${PALETTE.min}">
-      <div class="card-label">Journée la plus froide</div>
+      <div class="card-label">${t("cardColdestDay")}</div>
       <div class="card-value-row">
         <span class="card-icon">${weatherEmoji(minRow.weatherCode)}</span>
         <div class="card-value" style="color:${PALETTE.min}">${minRow.min.toFixed(1)}°</div>
       </div>
       <div class="card-sub">${formatLong(minRow.date)}<span id="hour-min"></span></div>
-      <div class="card-humidity" id="hum-min">💧 humidité <b>…</b></div>
-      <div class="card-wind" id="wind-min">💨 vent <b>…</b></div>
+      <div class="card-humidity" id="hum-min">💧 ${t("cardHumidity")} <b>…</b></div>
+      <div class="card-wind" id="wind-min">💨 ${t("cardWind")} <b>…</b></div>
     </div>
     <div class="card" style="--accent:${PALETTE.mean}">
-      <div class="card-label">Moyenne sur la période</div>
+      <div class="card-label">${t("cardAvgOverPeriod")}</div>
       <div class="card-value" style="color:${PALETTE.mean}">${avg !== null ? avg.toFixed(1)+"°" : "—"}</div>
-      <div class="card-sub">sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardOverNDays", rows.length)}</div>
     </div>
     <div class="card" style="--accent:#f3f6f9">
-      <div class="card-label">Écart thermique</div>
+      <div class="card-label">${t("cardThermalRange")}</div>
       <div class="card-value">${amplitude.toFixed(1)}°</div>
-      <div class="card-sub">max − min</div>
+      <div class="card-sub">${t("cardMaxMinusMin")}</div>
     </div>
     <div class="card" style="--accent:${PALETTE.canicule}">
-      <div class="card-label">Jours de canicule</div>
+      <div class="card-label">${t("cardCaniculeDays")}</div>
       <div class="card-value" style="color:${PALETTE.canicule}">${caniculeDays}</div>
-      <div class="card-sub">max ≥ ${CANICULE_SEUIL}° sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardCaniculeSub", CANICULE_SEUIL, rows.length)}</div>
     </div>
     <div class="card" style="--accent:${PALETTE.gel}">
-      <div class="card-label">Jours de gel</div>
+      <div class="card-label">${t("cardGelDays")}</div>
       <div class="card-value" style="color:${PALETTE.gel}">${gelDays}</div>
-      <div class="card-sub">min ≤ ${GEL_SEUIL}° sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardGelSub", GEL_SEUIL, rows.length)}</div>
     </div>
     <div class="card" style="--accent:#457b9d">
-      <div class="card-label">Jours de pluie</div>
+      <div class="card-label">${t("cardRainDays")}</div>
       <div class="card-value" style="color:#457b9d">${pluieDays}</div>
-      <div class="card-sub">≥ ${PLUIE_SEUIL} mm, sous l'isotherme 0° · sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardRainSub", PLUIE_SEUIL, rows.length)}</div>
     </div>
     <div class="card" style="--accent:#8fa4b8">
-      <div class="card-label">Jours de vent fort</div>
+      <div class="card-label">${t("cardWindDays")}</div>
       <div class="card-value" style="color:#8fa4b8">${ventDays}</div>
-      <div class="card-sub">rafales ≥ ${VENT_SEUIL} km/h sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardWindSub", VENT_SEUIL, rows.length)}</div>
     </div>
     <div class="card" style="--accent:${PALETTE.aqi}">
-      <div class="card-label">Jours AQI > ${AQI_SEUIL}</div>
+      <div class="card-label">${t("cardAqiDaysTitle", AQI_SEUIL)}</div>
       <div class="card-value" style="color:${PALETTE.aqi}">${aqiDaysAvailable ? aqiDays : "—"}</div>
-      <div class="card-sub">${aqiDaysAvailable ? `qualité de l'air dégradée · sur ${rows.length} jours` : "donnée AQI indisponible"}</div>
+      <div class="card-sub">${aqiDaysAvailable ? t("cardAqiSub", rows.length) : t("cardAqiUnavailable")}</div>
     </div>
     <div class="card" style="--accent:#a8dadc">
-      <div class="card-label">Jours de neige</div>
+      <div class="card-label">${t("cardSnowDays")}</div>
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
-      <div class="card-sub">altitude ≥ isotherme 0° · sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardSnowSub", rows.length)}</div>
     </div>
     <div class="card" style="--accent:#e9c46a">
-      <div class="card-label">Jours de beau temps</div>
+      <div class="card-label">${t("cardFairDays")}</div>
       <div class="card-value-row">
         <span class="card-icon">☀️</span>
         <div class="card-value" style="color:#e9c46a">${beauTempsDays}</div>
       </div>
-      <div class="card-sub">ciel clair ou peu nuageux sur ${rows.length} jours</div>
+      <div class="card-sub">${t("cardFairSub", rows.length)}</div>
     </div>
   `;
 
@@ -1227,26 +1529,26 @@ function renderStats(rows, start, end){
     ? `&elevation=${currentCity.elevation}` : "";
   fetchDayDetails(maxRow.date, elevationParam, "max").then(({ humidity, hour, windSpeed, windDirection }) => {
     const humEl = document.getElementById("hum-max");
-    if(humEl) humEl.innerHTML = `💧 humidité <b>${humidity != null ? humidity + "%" : "—"}</b>`;
+    if(humEl) humEl.innerHTML = `💧 ${t("cardHumidity")} <b>${humidity != null ? humidity + "%" : "—"}</b>`;
     const hourEl = document.getElementById("hour-max");
     if(hourEl && hour) hourEl.textContent = ` · ${hour}`;
     const windEl = document.getElementById("wind-max");
     if(windEl){
       windEl.innerHTML = windSpeed != null
-        ? `💨 vent <b>${windSpeed} km/h${windDirection ? " " + windDirection : ""}</b>`
-        : `💨 vent <b>—</b>`;
+        ? `💨 ${t("cardWind")} <b>${windSpeed} km/h${windDirection ? " " + windDirection : ""}</b>`
+        : `💨 ${t("cardWind")} <b>—</b>`;
     }
   });
   fetchDayDetails(minRow.date, elevationParam, "min").then(({ humidity, hour, windSpeed, windDirection }) => {
     const humEl = document.getElementById("hum-min");
-    if(humEl) humEl.innerHTML = `💧 humidité <b>${humidity != null ? humidity + "%" : "—"}</b>`;
+    if(humEl) humEl.innerHTML = `💧 ${t("cardHumidity")} <b>${humidity != null ? humidity + "%" : "—"}</b>`;
     const hourEl = document.getElementById("hour-min");
     if(hourEl && hour) hourEl.textContent = ` · ${hour}`;
     const windEl = document.getElementById("wind-min");
     if(windEl){
       windEl.innerHTML = windSpeed != null
-        ? `💨 vent <b>${windSpeed} km/h${windDirection ? " " + windDirection : ""}</b>`
-        : `💨 vent <b>—</b>`;
+        ? `💨 ${t("cardWind")} <b>${windSpeed} km/h${windDirection ? " " + windDirection : ""}</b>`
+        : `💨 ${t("cardWind")} <b>—</b>`;
     }
   });
 }
@@ -1261,18 +1563,18 @@ document.getElementById("chart-legend").addEventListener("click", (e) => {
   if(idx < 0) return;
   const meta = chart.getDatasetMeta(idx);
   meta.hidden = meta.hidden === null ? !chart.data.datasets[idx].hidden : !meta.hidden;
-  if(label === "Pression atmosphérique"){
+  if(label === t("labelPressure")){
     chart.options.scales.y1.display = !meta.hidden;
   }
-  if(label === "Qualité de l'air (AQI)"){
+  if(label === t("labelAqi")){
     chart.options.scales.y2.display = !meta.hidden;
-    const seuilIdx = chart.data.datasets.findIndex(ds => ds.label === `Seuil AQI (${AQI_SEUIL})`);
+    const seuilIdx = chart.data.datasets.findIndex(ds => ds.label === t("labelAqiThreshold", AQI_SEUIL));
     if(seuilIdx >= 0){
       const seuilMeta = chart.getDatasetMeta(seuilIdx);
       seuilMeta.hidden = meta.hidden;
     }
   }
-  if(label === "Isotherme 0°C (estimée)"){
+  if(label === t("labelIsotherm")){
     chart.options.scales.y3.display = !meta.hidden;
     showIsotherm = !meta.hidden;
   }
@@ -1286,7 +1588,7 @@ document.getElementById("share-btn").addEventListener("click", async () => {
     await navigator.clipboard.writeText(window.location.href);
     const btn = document.getElementById("share-btn");
     const original = btn.textContent;
-    btn.textContent = "✓ Lien copié";
+    btn.textContent = t("shareCopied");
     setTimeout(() => btn.textContent = original, 1800);
   }catch(e){
     prompt("Copie ce lien :", window.location.href);
@@ -1294,7 +1596,12 @@ document.getElementById("share-btn").addEventListener("click", async () => {
 });
 
 // ---------- Init from URL ----------
+document.querySelectorAll(".lang-btn").forEach(btn => {
+  btn.addEventListener("click", () => setLang(btn.dataset.lang));
+});
+
 (function init(){
+  applyStaticTranslations();
   const params = new URLSearchParams(window.location.search);
 
   // Accès simple par API (ex: appli mobile) : ?lat=48.85&lon=2.35[&ville=Paris][&periode=30][&debut=2024-01-01&fin=2024-01-31]
