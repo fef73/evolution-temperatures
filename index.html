@@ -215,6 +215,33 @@
     display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
     gap:12px; margin-top:22px;
   }
+  .bulletin{
+    background:var(--bg-panel); border:1px solid var(--hairline); border-radius:16px;
+    padding:20px 22px 22px; margin-top:22px;
+  }
+  .bulletin:empty{display:none;}
+  .bulletin-header{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--live); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .bulletin-summary{
+    font-size:14.5px; line-height:1.65; color:var(--text-hi); max-width:70ch;
+  }
+  .bulletin-alerts{
+    display:flex; flex-direction:column; gap:8px; margin-top:14px;
+  }
+  .bulletin-alert{
+    display:flex; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; line-height:1.4;
+    padding:10px 12px; border-radius:10px; border:1px solid var(--hairline);
+    background:rgba(255,255,255,0.02);
+  }
+  .bulletin-alert-icon{font-size:16px; flex:none;}
+  .bulletin-alert-canicule{ border-color:rgba(214,40,40,.4); color:#ffb4ab; background:rgba(214,40,40,.08); }
+  .bulletin-alert-gel{ border-color:rgba(72,202,228,.4); color:#a8e8f7; background:rgba(72,202,228,.08); }
+  .bulletin-alert-pollution{ border-color:rgba(82,183,136,.4); color:#a8f0d1; background:rgba(82,183,136,.08); }
+  .bulletin-alert-vent{ border-color:rgba(143,164,184,.4); color:var(--text-lo); background:rgba(143,164,184,.1); }
+
   .card{
     background:var(--bg-card); border:1px solid var(--hairline); border-radius:14px;
     padding:14px 16px; position:relative; overflow:hidden;
@@ -412,6 +439,8 @@
   </div>
   <div class="tip" style="text-align:center; font-size:12px; opacity:.6; margin-top:-10px;">💡 Clique sur un élément de la légende pour afficher ou masquer la courbe correspondante.</div>
   <div class="tip" style="text-align:center; font-size:12px; opacity:.5; margin-top:4px;">ℹ️ La température moyenne est la moyenne des 24 relevés horaires de la journée (pas (max + min) / 2), telle que calculée par Open-Meteo.</div>
+
+  <div class="bulletin" id="bulletin-period"></div>
 
   <div class="cards" id="cards"></div>
 
@@ -785,6 +814,7 @@ async function loadAndRender(){
   chartStatusEl.textContent = `Chargement des relevés pour ${currentCity.name}…`;
   gaugePanelEl.style.display = "none";
   cardsEl.innerHTML = "";
+  document.getElementById("bulletin-period").innerHTML = "";
 
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
@@ -1020,6 +1050,58 @@ function renderChart(rows){
   aqiLegendItem.style.pointerEvents = aqiAvailable ? "auto" : "none";
 }
 
+// Libellé de la période affichée, pour le bulletin
+function periodLabel(start, end){
+  if(periodPreset === "7") return "sur les 7 derniers jours";
+  if(periodPreset === "30") return "sur les 30 derniers jours";
+  if(periodPreset === "90") return "sur les 3 derniers mois";
+  if(periodPreset === "365") return "sur les 12 derniers mois";
+  return `du ${formatShort(start)} au ${formatShort(end)}`;
+}
+
+// Bulletin texte synthétisant la période sélectionnée — réutilise les statistiques déjà
+// calculées par renderStats (pas d'appel API supplémentaire).
+function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays){
+  const el = document.getElementById("bulletin-period");
+  if(!el) return;
+  if(!rows.length){ el.innerHTML = ""; return; }
+
+  const label = periodLabel(start, end);
+  const cityLabel = currentCity.name + (currentCity.admin1 ? `, ${currentCity.admin1}` : "");
+
+  let summaryText = `${cityLabel} a oscillé entre ${minRow.min.toFixed(1)}°C et ${maxRow.max.toFixed(1)}°C ${label}`;
+  if(avg !== null){
+    summaryText += `, avec une moyenne de ${avg.toFixed(1)}°C`;
+  }
+  summaryText += `. Le pic de chaleur a été relevé le ${formatLong(maxRow.date)}, le point le plus froid le ${formatLong(minRow.date)}.`;
+
+  const alerts = [];
+  if(caniculeDays > 0){
+    alerts.push({ type:"canicule", icon:"🔥", text:`${caniculeDays} jour${caniculeDays>1?"s":""} de canicule (≥${CANICULE_SEUIL}°C) ${label}.` });
+  }
+  if(gelDays > 0){
+    alerts.push({ type:"gel", icon:"❄️", text:`${gelDays} jour${gelDays>1?"s":""} de gel (≤${GEL_SEUIL}°C) ${label}.` });
+  }
+  if(aqiDaysAvailable && aqiDays > 0){
+    alerts.push({ type:"pollution", icon:"🌫️", text:`${aqiDays} jour${aqiDays>1?"s":""} avec une qualité de l'air dégradée (AQI > ${AQI_SEUIL}) ${label}.` });
+  }
+  if(ventDays > 0){
+    alerts.push({ type:"vent", icon:"💨", text:`${ventDays} jour${ventDays>1?"s":""} de vent fort (rafales ≥${VENT_SEUIL} km/h) ${label}.` });
+  }
+
+  const alertsHtml = alerts.length
+    ? `<div class="bulletin-alerts">${alerts.map(a =>
+        `<div class="bulletin-alert bulletin-alert-${a.type}"><span class="bulletin-alert-icon">${a.icon}</span>${a.text}</div>`
+      ).join("")}</div>`
+    : "";
+
+  el.innerHTML = `
+    <div class="bulletin-header">📅 bulletin — ${label}</div>
+    <div class="bulletin-summary">${summaryText}</div>
+    ${alertsHtml}
+  `;
+}
+
 function renderStats(rows, start, end){
   let maxRow = rows[0], minRow = rows[0], sum=0, count=0;
   rows.forEach(r => {
@@ -1057,6 +1139,8 @@ function renderStats(rows, start, end){
   const aqiDaysAvailable = rows.some(r => r.aqi !== null);
   const aqiDays = rows.filter(r => r.aqi !== null && r.aqi > AQI_SEUIL).length;
   const beauTempsDays = rows.filter(r => r.weatherCode !== null && BEAU_TEMPS_CODES.includes(r.weatherCode)).length;
+
+  buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays);
 
   // Jauge
   gaugePanelEl.style.display = "block";
