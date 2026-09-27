@@ -59,6 +59,7 @@
   }
   .lang-btn:hover{color:var(--text-hi);}
   .lang-btn.active{background:var(--live); color:#0b1622;}
+  .switches-row{display:flex; gap:8px;}
   .pulse{width:7px;height:7px;border-radius:50%;background:var(--live);
     box-shadow:0 0 0 0 rgba(126,228,184,.6); animation:pulse 2.2s infinite;}
   @keyframes pulse{
@@ -358,9 +359,15 @@
   <header>
     <div class="header-top-row">
       <div class="eyebrow" id="eyebrow"><span class="pulse"></span> relevé climatique — open-meteo</div>
-      <div class="lang-switch">
-        <button class="lang-btn" data-lang="fr">FR</button>
-        <button class="lang-btn" data-lang="en">EN</button>
+      <div class="switches-row">
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="fr">FR</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <div class="lang-switch" id="unit-switch">
+          <button class="lang-btn" data-unit="C">°C</button>
+          <button class="lang-btn" data-unit="F">°F</button>
+        </div>
       </div>
     </div>
     <h1 id="page-title">Évolution des températures</h1>
@@ -564,8 +571,8 @@ const TRANSLATIONS = {
     chartStatusError: (msg) => `Impossible de charger les données (${msg})`,
     updatedAt: (time) => `mis à jour à ${time}`,
     labelMax: "Maximale", labelMean: "Moyenne", labelMin: "Minimale",
-    labelCaniculeThreshold: (c) => `Seuil canicule (${c}°)`,
-    labelGelThreshold: (g) => `Seuil de gel (${g}°)`,
+    labelCaniculeThreshold: (c, u) => `Seuil canicule (${c}${u})`,
+    labelGelThreshold: (g, u) => `Seuil de gel (${g}${u})`,
     labelPressure: "Pression atmosphérique",
     labelAqi: "Qualité de l'air (AQI)",
     labelAqiThreshold: (a) => `Seuil AQI (${a})`,
@@ -590,9 +597,9 @@ const TRANSLATIONS = {
     cardThermalRange: "Écart thermique",
     cardMaxMinusMin: "max − min",
     cardCaniculeDays: "Jours de canicule",
-    cardCaniculeSub: (c, n) => `max ≥ ${c}° sur ${n} jour${n>1?"s":""}`,
+    cardCaniculeSub: (c, n, u) => `max ≥ ${c}${u} sur ${n} jour${n>1?"s":""}`,
     cardGelDays: "Jours de gel",
-    cardGelSub: (g, n) => `min ≤ ${g}° sur ${n} jour${n>1?"s":""}`,
+    cardGelSub: (g, n, u) => `min ≤ ${g}${u} sur ${n} jour${n>1?"s":""}`,
     cardRainDays: "Jours de pluie",
     cardRainSub: (p, n) => `≥ ${p} mm, sous l'isotherme 0° · sur ${n} jour${n>1?"s":""}`,
     cardWindDays: "Jours de vent fort",
@@ -610,11 +617,11 @@ const TRANSLATIONS = {
     periodTextPreset365: "sur les 12 derniers mois",
     periodTextCustom: (s, e) => `du ${s} au ${e}`,
     bulletinHeader: (label) => `📅 bulletin — ${label}`,
-    bulletinSummary: (city, min, max, label) => `${city} a oscillé entre ${min}°C et ${max}°C ${label}`,
-    bulletinSummaryAvg: (avg) => `, avec une moyenne de ${avg}°C`,
+    bulletinSummary: (city, min, max, label, u) => `${city} a oscillé entre ${min}${u} et ${max}${u} ${label}`,
+    bulletinSummaryAvg: (avg, u) => `, avec une moyenne de ${avg}${u}`,
     bulletinSummaryEnd: (maxDate, minDate) => `. Le pic de chaleur a été relevé le ${maxDate}, le point le plus froid le ${minDate}.`,
-    bulletinCaniculeAlert: (n, c, label) => `${n} jour${n>1?"s":""} de canicule (≥${c}°C) ${label}.`,
-    bulletinGelAlert: (n, g, label) => `${n} jour${n>1?"s":""} de gel (≤${g}°C) ${label}.`,
+    bulletinCaniculeAlert: (n, c, label, u) => `${n} jour${n>1?"s":""} de canicule (≥${c}${u}) ${label}.`,
+    bulletinGelAlert: (n, g, label, u) => `${n} jour${n>1?"s":""} de gel (≤${g}${u}) ${label}.`,
     bulletinAqiAlert: (n, a, label) => `${n} jour${n>1?"s":""} avec une qualité de l'air dégradée (AQI > ${a}) ${label}.`,
     bulletinVentAlert: (n, v, label) => `${n} jour${n>1?"s":""} de vent fort (rafales ≥${v} km/h) ${label}.`,
   },
@@ -653,8 +660,8 @@ const TRANSLATIONS = {
     chartStatusError: (msg) => `Unable to load data (${msg})`,
     updatedAt: (time) => `updated at ${time}`,
     labelMax: "Maximum", labelMean: "Average", labelMin: "Minimum",
-    labelCaniculeThreshold: (c) => `Heatwave threshold (${c}°)`,
-    labelGelThreshold: (g) => `Frost threshold (${g}°)`,
+    labelCaniculeThreshold: (c, u) => `Heatwave threshold (${c}${u})`,
+    labelGelThreshold: (g, u) => `Frost threshold (${g}${u})`,
     labelPressure: "Atmospheric pressure",
     labelAqi: "Air quality (AQI)",
     labelAqiThreshold: (a) => `AQI threshold (${a})`,
@@ -679,9 +686,9 @@ const TRANSLATIONS = {
     cardThermalRange: "Thermal range",
     cardMaxMinusMin: "max − min",
     cardCaniculeDays: "Heatwave days",
-    cardCaniculeSub: (c, n) => `max ≥ ${c}° over ${n} day${n>1?"s":""}`,
+    cardCaniculeSub: (c, n, u) => `max ≥ ${c}${u} over ${n} day${n>1?"s":""}`,
     cardGelDays: "Frost days",
-    cardGelSub: (g, n) => `min ≤ ${g}° over ${n} day${n>1?"s":""}`,
+    cardGelSub: (g, n, u) => `min ≤ ${g}${u} over ${n} day${n>1?"s":""}`,
     cardRainDays: "Rainy days",
     cardRainSub: (p, n) => `≥ ${p} mm, below the 0° isotherm · over ${n} day${n>1?"s":""}`,
     cardWindDays: "Strong wind days",
@@ -699,11 +706,11 @@ const TRANSLATIONS = {
     periodTextPreset365: "over the last 12 months",
     periodTextCustom: (s, e) => `from ${s} to ${e}`,
     bulletinHeader: (label) => `📅 bulletin — ${label}`,
-    bulletinSummary: (city, min, max, label) => `${city} ranged between ${min}°C and ${max}°C ${label}`,
-    bulletinSummaryAvg: (avg) => `, averaging ${avg}°C`,
+    bulletinSummary: (city, min, max, label, u) => `${city} ranged between ${min}${u} and ${max}${u} ${label}`,
+    bulletinSummaryAvg: (avg, u) => `, averaging ${avg}${u}`,
     bulletinSummaryEnd: (maxDate, minDate) => `. The heat peak was recorded on ${maxDate}, the coldest point on ${minDate}.`,
-    bulletinCaniculeAlert: (n, c, label) => `${n} heatwave day${n>1?"s":""} (≥${c}°C) ${label}.`,
-    bulletinGelAlert: (n, g, label) => `${n} frost day${n>1?"s":""} (≤${g}°C) ${label}.`,
+    bulletinCaniculeAlert: (n, c, label, u) => `${n} heatwave day${n>1?"s":""} (≥${c}${u}) ${label}.`,
+    bulletinGelAlert: (n, g, label, u) => `${n} frost day${n>1?"s":""} (≤${g}${u}) ${label}.`,
     bulletinAqiAlert: (n, a, label) => `${n} day${n>1?"s":""} with degraded air quality (AQI > ${a}) ${label}.`,
     bulletinVentAlert: (n, v, label) => `${n} strong-wind day${n>1?"s":""} (gusts ≥${v} km/h) ${label}.`,
   },
@@ -826,7 +833,7 @@ const FEATURES_CONTENT = {
         </ul>
         <h3>⚙️ Confort d'usage</h3>
         <ul>
-          <li>FR/EN, lien partageable (conserve la ville et la période)</li>
+          <li>FR/EN, °C/°F (préférences mémorisées), lien partageable (conserve la ville et la période)</li>
           <li>Accès direct par URL : <code>?lat=45.92&amp;lon=6.87&amp;ville=Chamonix&amp;alt=1035&amp;periode=30</code> (ou <code>&amp;debut=2024-01-01&amp;fin=2024-01-31</code>)</li>
         </ul>
       </div>
@@ -863,7 +870,7 @@ const FEATURES_CONTENT = {
         </ul>
         <h3>⚙️ Convenience</h3>
         <ul>
-          <li>FR/EN, shareable link (keeps the city and period)</li>
+          <li>FR/EN, °C/°F (preferences remembered), shareable link (keeps the city and period)</li>
           <li>Direct URL access: <code>?lat=45.92&amp;lon=6.87&amp;ville=Chamonix&amp;alt=1035&amp;periode=30</code> (or <code>&amp;debut=2024-01-01&amp;fin=2024-01-31</code>)</li>
         </ul>
       </div>
@@ -880,6 +887,18 @@ function renderFeatures(){
 
 let lang = localStorage.getItem("evolution-lang") || (navigator.language && navigator.language.startsWith("en") ? "en" : "fr");
 
+// ---------- Unité de température (°C / °F) ----------
+let tempUnit = localStorage.getItem("evolution-unit") || "C";
+function convTemp(c){
+  if(c === null || c === undefined) return c;
+  return tempUnit === "F" ? (c * 9 / 5 + 32) : c;
+}
+function convDelta(d){ return tempUnit === "F" ? d * 9 / 5 : d; } // écart de température (sans +32)
+function unitSuffix(){ return tempUnit === "F" ? "°F" : "°C"; }
+function fmtTemp(c){ return convTemp(c).toFixed(1) + unitSuffix(); }
+const caniculeLabel = () => t("labelCaniculeThreshold", Math.round(convTemp(CANICULE_SEUIL)), unitSuffix());
+const gelLabel = () => t("labelGelThreshold", Math.round(convTemp(GEL_SEUIL)), unitSuffix());
+
 function t(key, ...args){
   const dict = TRANSLATIONS[lang] || TRANSLATIONS.fr;
   const entry = dict[key] !== undefined ? dict[key] : TRANSLATIONS.fr[key];
@@ -889,7 +908,8 @@ function t(key, ...args){
 function applyStaticTranslations(){
   document.documentElement.lang = lang;
   renderFeatures();
-  document.querySelectorAll(".lang-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  document.querySelectorAll(".lang-btn[data-unit]").forEach(b => b.classList.toggle("active", b.dataset.unit === tempUnit));
   document.getElementById("eyebrow").innerHTML = `<span class="pulse"></span> ${t("eyebrow")}`;
   document.getElementById("page-title").textContent = t("title");
   document.getElementById("page-subtitle").textContent = t("subtitle");
@@ -932,13 +952,13 @@ function applyStaticTranslations(){
   });
   const caniculeLegend = document.getElementById("legend-canicule");
   if(caniculeLegend){
-    const label = t("labelCaniculeThreshold", CANICULE_SEUIL);
+    const label = caniculeLabel();
     caniculeLegend.dataset.legendLabel = label;
     caniculeLegend.querySelector(".legend-text").textContent = label;
   }
   const gelLegend = document.getElementById("legend-gel");
   if(gelLegend){
-    const label = t("labelGelThreshold", GEL_SEUIL);
+    const label = gelLabel();
     gelLegend.dataset.legendLabel = label;
     gelLegend.querySelector(".legend-text").textContent = label;
   }
@@ -956,6 +976,16 @@ function applyStaticTranslations(){
   document.getElementById("footer-tip").innerHTML = t("footerTip");
   renderCurrentCity();
   refreshDateSelectMonths();
+}
+
+function setTempUnit(newUnit){
+  if(newUnit !== "C" && newUnit !== "F") return;
+  if(newUnit === tempUnit) return;
+  tempUnit = newUnit;
+  localStorage.setItem("evolution-unit", tempUnit);
+  applyStaticTranslations();
+  // Même logique que le changement de langue : reconstruit graphique, cartes et bulletin.
+  if(currentCityLoaded) loadAndRender();
 }
 
 function setLang(newLang){
@@ -1478,11 +1508,11 @@ function renderChart(rows){
     data: {
       labels,
       datasets: [
-        { label:t("labelMax"), data: rows.map(r=>r.max), borderColor: PALETTE.max, backgroundColor: PALETTE.max, pointRadius:0, borderWidth:2, tension:0.3 },
-        { label:t("labelMean"), data: rows.map(r=>r.mean), borderColor: PALETTE.mean, backgroundColor: PALETTE.mean, pointRadius:0, borderWidth:1.5, borderDash:[4,3], tension:0.3 },
-        { label:t("labelMin"), data: rows.map(r=>r.min), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
-        { label:t("labelCaniculeThreshold", CANICULE_SEUIL), data: labels.map(()=>CANICULE_SEUIL), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
-        { label:t("labelGelThreshold", GEL_SEUIL), data: labels.map(()=>GEL_SEUIL), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:t("labelMax"), data: rows.map(r=>convTemp(r.max)), borderColor: PALETTE.max, backgroundColor: PALETTE.max, pointRadius:0, borderWidth:2, tension:0.3 },
+        { label:t("labelMean"), data: rows.map(r=>convTemp(r.mean)), borderColor: PALETTE.mean, backgroundColor: PALETTE.mean, pointRadius:0, borderWidth:1.5, borderDash:[4,3], tension:0.3 },
+        { label:t("labelMin"), data: rows.map(r=>convTemp(r.min)), borderColor: PALETTE.min, backgroundColor: PALETTE.min, pointRadius:0, borderWidth:2, tension:0.3 },
+        { label:caniculeLabel(), data: labels.map(()=>convTemp(CANICULE_SEUIL)), borderColor: PALETTE.canicule, backgroundColor: PALETTE.canicule, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
+        { label:gelLabel(), data: labels.map(()=>convTemp(GEL_SEUIL)), borderColor: PALETTE.gel, backgroundColor: PALETTE.gel, pointRadius:0, borderWidth:2, borderDash:[8,5], tension:0 },
         { label:t("labelPressure"), data: rows.map(r=>r.pressure), borderColor: PALETTE.pressure, backgroundColor: PALETTE.pressure, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y1" },
         { label:t("labelAqi"), data: rows.map(r=>r.aqi), borderColor: PALETTE.aqi, backgroundColor: PALETTE.aqi, pointRadius:0, borderWidth:1.5, tension:0.3, yAxisID:"y2" },
         { label:t("labelAqiThreshold", AQI_SEUIL), data: labels.map(()=>AQI_SEUIL), borderColor:"#52b788", backgroundColor:"#52b788", pointRadius:0, borderWidth:1.5, borderDash:[6,4], tension:0, yAxisID:"y2", hidden: !rows.some(r => r.aqi !== null) },
@@ -1498,7 +1528,7 @@ function renderChart(rows){
           backgroundColor:"#132539", borderColor:"#22384f", borderWidth:1,
           titleFont:{ family:"Space Grotesk" }, bodyFont:{ family:"IBM Plex Mono", size:12 },
           padding:10, titleColor:"#f3f6f9", bodyColor:"#f3f6f9",
-          filter: (item) => item.dataset.label !== t("labelCaniculeThreshold", CANICULE_SEUIL) && item.dataset.label !== t("labelGelThreshold", GEL_SEUIL),
+          filter: (item) => item.dataset.label !== caniculeLabel() && item.dataset.label !== gelLabel(),
           callbacks:{
             title: (items) => `${weatherEmoji(rows[items[0].dataIndex].weatherCode)} ${moonPhase(rows[items[0].dataIndex].date).emoji} ${formatLong(items[0].label)}`,
             afterTitle: (items) => moonPhase(rows[items[0].dataIndex].date).label,
@@ -1508,7 +1538,7 @@ function renderChart(rows){
               ? `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(0) : "—"}`
               : item.dataset.label === t("labelIsotherm")
               ? `${item.dataset.label} : ${item.raw !== null ? formatIsotherm(item.raw) : "—"}`
-              : `${item.dataset.label} : ${item.raw.toFixed(1)}°`,
+              : `${item.dataset.label} : ${item.raw !== null ? item.raw.toFixed(1) + unitSuffix() : "—"}`,
           }
         }
       },
@@ -1520,7 +1550,7 @@ function renderChart(rows){
         },
         y:{
           grid:{ color:"#1a2c40" },
-          ticks:{ color:"#8fa4b8", font:{ family:"IBM Plex Mono", size:11 }, callback: v => v + "°" },
+          ticks:{ color:"#8fa4b8", font:{ family:"IBM Plex Mono", size:11 }, callback: v => v + unitSuffix() },
         },
         y1:{
           position:"right",
@@ -1573,18 +1603,18 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
   const label = periodLabel(start, end);
   const cityLabel = currentCity.name + (currentCity.admin1 ? `, ${currentCity.admin1}` : "");
 
-  let summaryText = t("bulletinSummary", cityLabel, minRow.min.toFixed(1), maxRow.max.toFixed(1), label);
+  let summaryText = t("bulletinSummary", cityLabel, convTemp(minRow.min).toFixed(1), convTemp(maxRow.max).toFixed(1), label, unitSuffix());
   if(avg !== null){
-    summaryText += t("bulletinSummaryAvg", avg.toFixed(1));
+    summaryText += t("bulletinSummaryAvg", convTemp(avg).toFixed(1), unitSuffix());
   }
   summaryText += t("bulletinSummaryEnd", formatLong(maxRow.date), formatLong(minRow.date));
 
   const alerts = [];
   if(caniculeDays > 0){
-    alerts.push({ type:"canicule", icon:"🔥", text:t("bulletinCaniculeAlert", caniculeDays, CANICULE_SEUIL, label) });
+    alerts.push({ type:"canicule", icon:"🔥", text:t("bulletinCaniculeAlert", caniculeDays, Math.round(convTemp(CANICULE_SEUIL)), label, unitSuffix()) });
   }
   if(gelDays > 0){
-    alerts.push({ type:"gel", icon:"❄️", text:t("bulletinGelAlert", gelDays, GEL_SEUIL, label) });
+    alerts.push({ type:"gel", icon:"❄️", text:t("bulletinGelAlert", gelDays, Math.round(convTemp(GEL_SEUIL)), label, unitSuffix()) });
   }
   if(aqiDaysAvailable && aqiDays > 0){
     alerts.push({ type:"pollution", icon:"🌫️", text:t("bulletinAqiAlert", aqiDays, AQI_SEUIL, label) });
@@ -1650,9 +1680,9 @@ function renderStats(rows, start, end){
   gaugePanelEl.style.display = "block";
   const altSuffix = (currentCity.elevation !== null && currentCity.elevation !== undefined) ? ` · altitude ${currentCity.elevation} m` : "";
   document.getElementById("gauge-dates").textContent = `${formatShort(start)} — ${formatShort(end)}${altSuffix}`;
-  document.getElementById("gauge-min").textContent = `${minRow.min.toFixed(1)}°`;
-  document.getElementById("gauge-avg").textContent = avg !== null ? `${avg.toFixed(1)}° ${t("gaugeAvgSuffix")}` : "—";
-  document.getElementById("gauge-max").textContent = `${maxRow.max.toFixed(1)}°`;
+  document.getElementById("gauge-min").textContent = fmtTemp(minRow.min);
+  document.getElementById("gauge-avg").textContent = avg !== null ? `${fmtTemp(avg)} ${t("gaugeAvgSuffix")}` : "—";
+  document.getElementById("gauge-max").textContent = fmtTemp(maxRow.max);
   const pos = avg !== null ? Math.min(100, Math.max(0, ((avg - minRow.min) / amplitude) * 100)) : 50;
   document.getElementById("gauge-marker").style.left = `calc(${pos}% - 2px)`;
 
@@ -1661,7 +1691,7 @@ function renderStats(rows, start, end){
       <div class="card-label">${t("cardHottestDay")}</div>
       <div class="card-value-row">
         <span class="card-icon">${weatherEmoji(maxRow.weatherCode)}</span>
-        <div class="card-value" style="color:${PALETTE.max}">${maxRow.max.toFixed(1)}°</div>
+        <div class="card-value" style="color:${PALETTE.max}">${fmtTemp(maxRow.max)}</div>
       </div>
       <div class="card-sub">${formatLong(maxRow.date)}<span id="hour-max"></span></div>
       <div class="card-humidity" id="hum-max">💧 ${t("cardHumidity")} <b>…</b></div>
@@ -1671,7 +1701,7 @@ function renderStats(rows, start, end){
       <div class="card-label">${t("cardColdestDay")}</div>
       <div class="card-value-row">
         <span class="card-icon">${weatherEmoji(minRow.weatherCode)}</span>
-        <div class="card-value" style="color:${PALETTE.min}">${minRow.min.toFixed(1)}°</div>
+        <div class="card-value" style="color:${PALETTE.min}">${fmtTemp(minRow.min)}</div>
       </div>
       <div class="card-sub">${formatLong(minRow.date)}<span id="hour-min"></span></div>
       <div class="card-humidity" id="hum-min">💧 ${t("cardHumidity")} <b>…</b></div>
@@ -1679,23 +1709,23 @@ function renderStats(rows, start, end){
     </div>
     <div class="card" style="--accent:${PALETTE.mean}">
       <div class="card-label">${t("cardAvgOverPeriod")}</div>
-      <div class="card-value" style="color:${PALETTE.mean}">${avg !== null ? avg.toFixed(1)+"°" : "—"}</div>
+      <div class="card-value" style="color:${PALETTE.mean}">${avg !== null ? fmtTemp(avg) : "—"}</div>
       <div class="card-sub">${t("cardOverNDays", rows.length)}</div>
     </div>
     <div class="card" style="--accent:#f3f6f9">
       <div class="card-label">${t("cardThermalRange")}</div>
-      <div class="card-value">${amplitude.toFixed(1)}°</div>
+      <div class="card-value">${convDelta(amplitude).toFixed(1)}${unitSuffix()}</div>
       <div class="card-sub">${t("cardMaxMinusMin")}</div>
     </div>
     <div class="card" style="--accent:${PALETTE.canicule}">
       <div class="card-label">${t("cardCaniculeDays")}</div>
       <div class="card-value" style="color:${PALETTE.canicule}">${caniculeDays}</div>
-      <div class="card-sub">${t("cardCaniculeSub", CANICULE_SEUIL, rows.length)}</div>
+      <div class="card-sub">${t("cardCaniculeSub", Math.round(convTemp(CANICULE_SEUIL)), rows.length, unitSuffix())}</div>
     </div>
     <div class="card" style="--accent:${PALETTE.gel}">
       <div class="card-label">${t("cardGelDays")}</div>
       <div class="card-value" style="color:${PALETTE.gel}">${gelDays}</div>
-      <div class="card-sub">${t("cardGelSub", GEL_SEUIL, rows.length)}</div>
+      <div class="card-sub">${t("cardGelSub", Math.round(convTemp(GEL_SEUIL)), rows.length, unitSuffix())}</div>
     </div>
     <div class="card" style="--accent:#457b9d">
       <div class="card-label">${t("cardRainDays")}</div>
@@ -1798,8 +1828,11 @@ document.getElementById("share-btn").addEventListener("click", async () => {
 });
 
 // ---------- Init from URL ----------
-document.querySelectorAll(".lang-btn").forEach(btn => {
+document.querySelectorAll(".lang-btn[data-lang]").forEach(btn => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
+});
+document.querySelectorAll(".lang-btn[data-unit]").forEach(btn => {
+  btn.addEventListener("click", () => setTempUnit(btn.dataset.unit));
 });
 
 (function init(){
