@@ -1,4 +1,4 @@
-# Évolution des températures — Historique météo d'une ville
+# Historique météo Ville — évolution des températures d'une ville
 
 Application météo mono-fichier (HTML/CSS/JS, sans backend) qui retrace l'évolution des températures d'une ville, jour après jour, sur la période de ton choix, à partir des archives climatiques [Open-Meteo](https://open-meteo.com/) (ERA5, gratuites, sans clé API).
 
