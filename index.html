@@ -116,6 +116,13 @@
   .current-city-pop{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-lo); margin-top:4px; cursor:help;}
   .current-city-pop:empty{display:none;}
   .current-city-pop b{color:var(--text-hi); font-weight:500;}
+  .js-tooltip{
+    position:fixed; z-index:9999; max-width:280px; white-space:pre-line;
+    background:var(--bg-card); border:1px solid var(--hairline); color:var(--text-hi);
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; line-height:1.45;
+    padding:8px 10px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.45);
+    pointer-events:none;
+  }
 
   .features-panel{ margin-top:22px; }
   .features-panel details{
@@ -800,6 +807,47 @@ function renderPopulation(){
   }).catch(() => { if(popRequestKey === key){ el.innerHTML = ""; el.title = ""; } });
 }
 
+// ---------- Tooltips tactiles (équivalent mobile du survol souris) ----------
+// Les attributs title="" ne s'affichent qu'au survol, geste absent sur smartphone :
+// un tap (ou clic) sur l'élément affiche le détail dans une bulle, un second tap la ferme.
+(function(){
+  const TAP_TOOLTIP_SELECTOR = ".current-city-pop[title]";
+  let tipEl = null, activeTarget = null;
+  function hideTip(){
+    if(tipEl){ tipEl.remove(); tipEl = null; }
+    activeTarget = null;
+  }
+  function showTip(target){
+    const text = target.getAttribute("title");
+    if(!text) return;
+    hideTip();
+    tipEl = document.createElement("div");
+    tipEl.className = "js-tooltip";
+    tipEl.textContent = text;
+    document.body.appendChild(tipEl);
+    const rect = target.getBoundingClientRect();
+    const tipRect = tipEl.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+    let top = rect.top - tipRect.height - 8;
+    if(top < 8) top = rect.bottom + 8;
+    tipEl.style.left = left + "px";
+    tipEl.style.top = top + "px";
+    activeTarget = target;
+  }
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest(TAP_TOOLTIP_SELECTOR);
+    if(el){
+      e.stopPropagation();
+      if(activeTarget === el){ hideTip(); } else { showTip(el); }
+    } else {
+      hideTip();
+    }
+  }, true);
+  window.addEventListener("scroll", hideTip, true);
+  window.addEventListener("resize", hideTip);
+})();
+
 // ---------- Panneau "Fonctionnalités du site" ----------
 const FEATURES_CONTENT = {
   fr: `
@@ -810,7 +858,7 @@ const FEATURES_CONTENT = {
         <ul>
           <li>Recherche de n'importe quelle ville au monde (géocodage Open-Meteo)</li>
           <li>Altitude précise optionnelle (bouton ⛰ Altitude) : station de ski, sommet, vallée — la température est recalculée pour ce point</li>
-          <li><b>Population</b> sous le nom de la ville : en France, commune et zone urbaine (intercommunalité / EPCI, INSEE via geo.api.gouv.fr) ; hors France, population de la ville (Open-Meteo / GeoNames) — détail au survol</li>
+          <li><b>Population</b> sous le nom de la ville : en France, commune et zone urbaine (intercommunalité / EPCI, INSEE via geo.api.gouv.fr) ; hors France, population de la ville (Open-Meteo / GeoNames) — détail au survol ou au toucher</li>
         </ul>
         <h3>📅 Période</h3>
         <ul>
@@ -847,7 +895,7 @@ const FEATURES_CONTENT = {
         <ul>
           <li>Search any city in the world (Open-Meteo geocoding)</li>
           <li>Optional precise altitude (⛰ Altitude button): ski resort, summit, valley — temperature is recomputed for that point</li>
-          <li><b>Population</b> under the city name: in France, town and urban area (inter-municipal area / EPCI, INSEE via geo.api.gouv.fr); elsewhere, the city's population (Open-Meteo / GeoNames) — details on hover</li>
+          <li><b>Population</b> under the city name: in France, town and urban area (inter-municipal area / EPCI, INSEE via geo.api.gouv.fr); elsewhere, the city's population (Open-Meteo / GeoNames) — details on hover or tap</li>
         </ul>
         <h3>📅 Period</h3>
         <ul>
