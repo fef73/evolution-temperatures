@@ -1058,7 +1058,8 @@ function todayMinusLag(){
   d.setDate(d.getDate() - LAG_DAYS);
   return d;
 }
-function isoDate(d){ return d.toISOString().slice(0,10); }
+// Date locale (pas UTC) : toISOString() décalait d'un jour en arrière en France (minuit local = 22h/23h UTC la veille)
+function isoDate(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 
 function encodeState(){
   const cs = getCustomISO("start");
@@ -1313,6 +1314,9 @@ const gaugePanelEl = document.getElementById("gauge-panel");
 
 function formatShort(iso){
   return new Date(iso + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day:"numeric", month:"short" });
+}
+function formatMedium(iso){
+  return new Date(iso + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day:"numeric", month:"short", year:"numeric" });
 }
 function formatLong(iso){
   return new Date(iso + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day:"numeric", month:"long", year:"numeric" });
@@ -1638,7 +1642,7 @@ function periodLabel(start, end){
   if(periodPreset === "30") return t("periodTextPreset30");
   if(periodPreset === "90") return t("periodTextPreset90");
   if(periodPreset === "365") return t("periodTextPreset365");
-  return t("periodTextCustom", formatShort(start), formatShort(end));
+  return t("periodTextCustom", formatLong(start), formatLong(end));
 }
 
 // Bulletin texte synthétisant la période sélectionnée — réutilise les statistiques déjà
@@ -1678,7 +1682,7 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
     : "";
 
   el.innerHTML = `
-    <div class="bulletin-header">${t("bulletinHeader", label)}</div>
+    <div class="bulletin-header">${t("bulletinHeader", t("periodTextCustom", formatLong(start), formatLong(end)))}</div>
     <div class="bulletin-summary">${summaryText}</div>
     ${alertsHtml}
   `;
@@ -1727,7 +1731,7 @@ function renderStats(rows, start, end){
   // Jauge
   gaugePanelEl.style.display = "block";
   const altSuffix = (currentCity.elevation !== null && currentCity.elevation !== undefined) ? ` · altitude ${currentCity.elevation} m` : "";
-  document.getElementById("gauge-dates").textContent = `${formatShort(start)} — ${formatShort(end)}${altSuffix}`;
+  document.getElementById("gauge-dates").textContent = `${formatMedium(start)} — ${formatMedium(end)}${altSuffix}`;
   document.getElementById("gauge-min").textContent = fmtTemp(minRow.min);
   document.getElementById("gauge-avg").textContent = avg !== null ? `${fmtTemp(avg)} ${t("gaugeAvgSuffix")}` : "—";
   document.getElementById("gauge-max").textContent = fmtTemp(maxRow.max);
