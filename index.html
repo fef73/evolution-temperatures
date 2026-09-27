@@ -623,6 +623,7 @@ const TRANSLATIONS = {
     periodTextPreset90: "sur les 3 derniers mois",
     periodTextPreset365: "sur les 12 derniers mois",
     periodTextCustom: (s, e) => `du ${s} au ${e}`,
+    periodDays: (n) => `soit ${n.toLocaleString("fr-FR")} jour${n>1?"s":""}`,
     bulletinHeader: (label) => `📅 bulletin — ${label}`,
     bulletinSummary: (city, min, max, label, u) => `${city} a oscillé entre ${min}${u} et ${max}${u} ${label}`,
     bulletinSummaryAvg: (avg, u) => `, avec une moyenne de ${avg}${u}`,
@@ -712,6 +713,7 @@ const TRANSLATIONS = {
     periodTextPreset90: "over the last 3 months",
     periodTextPreset365: "over the last 12 months",
     periodTextCustom: (s, e) => `from ${s} to ${e}`,
+    periodDays: (n) => `i.e. ${n.toLocaleString("en-US")} day${n>1?"s":""}`,
     bulletinHeader: (label) => `📅 bulletin — ${label}`,
     bulletinSummary: (city, min, max, label, u) => `${city} ranged between ${min}${u} and ${max}${u} ${label}`,
     bulletinSummaryAvg: (avg, u) => `, averaging ${avg}${u}`,
@@ -1303,7 +1305,8 @@ function getRange(){
     return { start: isoDate(start), end: isoDate(rawEnd) };
   }
   const days = parseInt(periodPreset, 10);
-  const start = new Date(end.getTime() - days*86400000);
+  // "30 derniers jours" = 30 jours bornes incluses (auparavant 31)
+  const start = new Date(end); start.setDate(start.getDate() - (days - 1));
   return { start: isoDate(start), end: isoDate(end) };
 }
 
@@ -1637,6 +1640,11 @@ function renderChart(rows){
 }
 
 // Libellé de la période affichée, pour le bulletin
+// Nombre de jours de la période, bornes incluses (calcul en UTC pour éviter les changements d'heure)
+function periodDayCount(start, end){
+  const [ys, ms, ds] = start.split("-").map(Number), [ye, me, de] = end.split("-").map(Number);
+  return Math.round((Date.UTC(ye, me - 1, de) - Date.UTC(ys, ms - 1, ds)) / 86400000) + 1;
+}
 function periodLabel(start, end){
   if(periodPreset === "7") return t("periodTextPreset7");
   if(periodPreset === "30") return t("periodTextPreset30");
@@ -1655,7 +1663,8 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
   const label = periodLabel(start, end);
   const cityLabel = currentCity.name + (currentCity.admin1 ? `, ${currentCity.admin1}` : "");
 
-  let summaryText = t("bulletinSummary", cityLabel, convTemp(minRow.min).toFixed(1), convTemp(maxRow.max).toFixed(1), label, unitSuffix());
+  const summaryLabel = periodPreset === "custom" ? `${label}, ${t("periodDays", periodDayCount(start, end))}` : label;
+  let summaryText = t("bulletinSummary", cityLabel, convTemp(minRow.min).toFixed(1), convTemp(maxRow.max).toFixed(1), summaryLabel, unitSuffix());
   if(avg !== null){
     summaryText += t("bulletinSummaryAvg", convTemp(avg).toFixed(1), unitSuffix());
   }
@@ -1682,7 +1691,7 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
     : "";
 
   el.innerHTML = `
-    <div class="bulletin-header">${t("bulletinHeader", t("periodTextCustom", formatLong(start), formatLong(end)))}</div>
+    <div class="bulletin-header">${t("bulletinHeader", `${t("periodTextCustom", formatLong(start), formatLong(end))}, ${t("periodDays", periodDayCount(start, end))}`)}</div>
     <div class="bulletin-summary">${summaryText}</div>
     ${alertsHtml}
   `;
