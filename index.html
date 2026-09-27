@@ -292,6 +292,7 @@
   .bulletin-alert-gel{ border-color:rgba(72,202,228,.4); color:#a8e8f7; background:rgba(72,202,228,.08); }
   .bulletin-alert-pollution{ border-color:rgba(82,183,136,.4); color:#a8f0d1; background:rgba(82,183,136,.08); }
   .bulletin-alert-vent{ border-color:rgba(143,164,184,.4); color:var(--text-lo); background:rgba(143,164,184,.1); }
+  .bulletin-alert-neige{ border-color:rgba(168,218,220,.45); color:#d8f1f2; background:rgba(168,218,220,.08); }
 
   .card{
     background:var(--bg-card); border:1px solid var(--hairline); border-radius:14px;
@@ -538,6 +539,7 @@ const PLUIE_SEUIL = 1; // mm — seuil standard pour qu'un jour soit compté "jo
 const VENT_SEUIL = 60; // km/h — rafales, seuil usuel de "vent fort"
 const AQI_SEUIL = 40; // seuil European AQI au-delà duquel la qualité de l'air est considérée dégradée
 const NEIGE_CODES = [71,73,75,77,85,86]; // codes météo WMO correspondant à de la neige
+const NEIGE_SEUIL_CM = 0.5; // cm — cumul de neige quotidien minimal pour compter un « jour de neige »
 const BEAU_TEMPS_CODES = [0,1,2]; // ciel clair ou peu nuageux
 const LAG_DAYS = 5; // délai de consolidation des archives climatiques Open-Meteo
 
@@ -608,7 +610,7 @@ const TRANSLATIONS = {
     cardGelDays: "Jours de gel",
     cardGelSub: (g, n, u) => `min ≤ ${g}${u} sur ${n} jour${n>1?"s":""}`,
     cardRainDays: "Jours de pluie",
-    cardRainSub: (p, n) => `≥ ${p} mm, sous l'isotherme 0° · sur ${n} jour${n>1?"s":""}`,
+    cardRainSub: (p, n) => `≥ ${p} mm, hors jours de neige · sur ${n} jour${n>1?"s":""}`,
     cardWindDays: "Jours de vent fort",
     cardWindSub: (v, n) => `rafales ≥ ${v} km/h sur ${n} jour${n>1?"s":""}`,
     cardAqiDaysTitle: (a) => `Jours AQI > ${a}`,
@@ -616,6 +618,9 @@ const TRANSLATIONS = {
     cardAqiUnavailable: "donnée AQI indisponible",
     cardSnowDays: "Jours de neige",
     cardSnowSub: (n) => `altitude ≥ isotherme 0° · sur ${n} jour${n>1?"s":""}`,
+    cardSnowSubCm: (seuil, total, n) => `≥ ${seuil} cm/jour · ${total} cm au total · sur ${n} jour${n>1?"s":""}`,
+    cardSnowTitle: "Cumul de neige quotidien des archives Open-Meteo (ERA5). Avec une altitude précisée, un jour compte aussi comme neigeux s'il a précipité alors que la température moyenne corrigée était ≤ 1,3 °C.",
+    bulletinNeigeAlert: (n, total, label) => `${n} jour${n>1?"s":""} de neige${total !== null ? ` (${total} cm au total)` : ""} ${label}.`,
     cardFairDays: "Jours de beau temps",
     cardFairSub: (n) => `ciel clair ou peu nuageux sur ${n} jour${n>1?"s":""}`,
     periodTextPreset7: "sur les 7 derniers jours",
@@ -698,7 +703,7 @@ const TRANSLATIONS = {
     cardGelDays: "Frost days",
     cardGelSub: (g, n, u) => `min ≤ ${g}${u} over ${n} day${n>1?"s":""}`,
     cardRainDays: "Rainy days",
-    cardRainSub: (p, n) => `≥ ${p} mm, below the 0° isotherm · over ${n} day${n>1?"s":""}`,
+    cardRainSub: (p, n) => `≥ ${p} mm, snow days excluded · over ${n} day${n>1?"s":""}`,
     cardWindDays: "Strong wind days",
     cardWindSub: (v, n) => `gusts ≥ ${v} km/h over ${n} day${n>1?"s":""}`,
     cardAqiDaysTitle: (a) => `Days with AQI > ${a}`,
@@ -706,6 +711,9 @@ const TRANSLATIONS = {
     cardAqiUnavailable: "AQI data unavailable",
     cardSnowDays: "Snow days",
     cardSnowSub: (n) => `altitude ≥ 0° isotherm · over ${n} day${n>1?"s":""}`,
+    cardSnowSubCm: (seuil, total, n) => `≥ ${seuil} cm/day · ${total} cm in total · over ${n} day${n>1?"s":""}`,
+    cardSnowTitle: "Daily snowfall from the Open-Meteo archive (ERA5). With a precise altitude, a day also counts as snowy if it had precipitation while the corrected mean temperature was ≤ 1.3 °C.",
+    bulletinNeigeAlert: (n, total, label) => `${n} snow day${n>1?"s":""}${total !== null ? ` (${total} cm in total)` : ""} ${label}.`,
     cardFairDays: "Fair-weather days",
     cardFairSub: (n) => `clear or mostly clear sky over ${n} day${n>1?"s":""}`,
     periodTextPreset7: "over the last 7 days",
@@ -878,8 +886,9 @@ const FEATURES_CONTENT = {
         <ul>
           <li>Journées la plus chaude et la plus froide, avec heure du pic, humidité et vent</li>
           <li>Moyenne et écart thermique sur la période</li>
-          <li>Nombre de jours de canicule, gel, pluie, neige, vent fort (rafales ≥60 km/h), qualité de l'air dégradée et beau temps</li>
-          <li>Bulletin résumant la période, avec alertes canicule, gel, pollution et vent</li>
+          <li>Nombre de jours de canicule, gel, pluie, vent fort (rafales ≥60 km/h), qualité de l'air dégradée et beau temps</li>
+          <li><b>Jours de neige</b> : cumul de neige quotidien des archives (≥0,5 cm/jour), avec le total en cm sur la période ; si une altitude est précisée, les jours de précipitations à température moyenne corrigée ≤1,3°C comptent aussi</li>
+          <li>Bulletin résumant la période, avec alertes canicule, gel, pollution, vent et neige</li>
         </ul>
         <h3>⚙️ Confort d'usage</h3>
         <ul>
@@ -915,8 +924,9 @@ const FEATURES_CONTENT = {
         <ul>
           <li>Hottest and coldest days, with peak hour, humidity and wind</li>
           <li>Period average and thermal range</li>
-          <li>Number of heatwave, frost, rain, snow, strong wind (gusts ≥60 km/h), poor air quality and fair-weather days</li>
-          <li>Bulletin summarising the period, with heatwave, frost, pollution and wind alerts</li>
+          <li>Number of heatwave, frost, rain, strong wind (gusts ≥60 km/h), poor air quality and fair-weather days</li>
+          <li><b>Snow days</b>: daily snowfall from the archive (≥0.5 cm/day), with the period total in cm; with a precise altitude, precipitation days with a corrected mean temperature ≤1.3°C also count</li>
+          <li>Bulletin summarising the period, with heatwave, frost, pollution, wind and snow alerts</li>
         </ul>
         <h3>⚙️ Convenience</h3>
         <ul>
@@ -1408,7 +1418,7 @@ async function loadAndRender(){
   try{
     const elevationParam = (currentCity.elevation !== null && currentCity.elevation !== undefined && !isNaN(currentCity.elevation))
       ? `&elevation=${currentCity.elevation}` : "";
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure&timezone=auto${elevationParam}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${currentCity.lat}&longitude=${currentCity.lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,snowfall_sum,wind_speed_10m_max,wind_gusts_10m_max&hourly=surface_pressure&timezone=auto${elevationParam}`;
     const res = await fetch(url);
     const data = await res.json();
     if(myId !== requestId) return;
@@ -1470,6 +1480,7 @@ async function loadAndRender(){
         mean:meanTemp,
         weatherCode: data.daily.weather_code ? data.daily.weather_code[i] : null,
         precipitation: data.daily.precipitation_sum ? data.daily.precipitation_sum[i] : null,
+        snowfall: data.daily.snowfall_sum ? data.daily.snowfall_sum[i] : null, // cm
         windSpeed: data.daily.wind_speed_10m_max ? data.daily.wind_speed_10m_max[i] : null,
         windGusts: data.daily.wind_gusts_10m_max ? data.daily.wind_gusts_10m_max[i] : null,
         pressure: pressureByDate[t] ? pressureByDate[t].sum / pressureByDate[t].count : null,
@@ -1655,7 +1666,7 @@ function periodLabel(start, end){
 
 // Bulletin texte synthétisant la période sélectionnée — réutilise les statistiques déjà
 // calculées par renderStats (pas d'appel API supplémentaire).
-function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays){
+function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays, neigeDays, snowTotalTxt){
   const el = document.getElementById("bulletin-period");
   if(!el) return;
   if(!rows.length){ el.innerHTML = ""; return; }
@@ -1682,6 +1693,9 @@ function buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays
   }
   if(ventDays > 0){
     alerts.push({ type:"vent", icon:"💨", text:t("bulletinVentAlert", ventDays, VENT_SEUIL, label) });
+  }
+  if(neigeDays > 0){
+    alerts.push({ type:"neige", icon:"🌨️", text:t("bulletinNeigeAlert", neigeDays, snowTotalTxt, label) });
   }
 
   const alertsHtml = alerts.length
@@ -1721,21 +1735,34 @@ function renderStats(rows, start, end){
   // (refroidissement par fusion des flocons en tombant). Si l'isotherme n'est pas disponible
   // pour un jour donné, on se replie sur le code météo du modèle (moins sensible à l'altitude).
   const ALTITUDE_NEIGE_MARGE = 200; // m
-  const isNeige = r => {
+  // Ancienne règle (estimation par l'isotherme), conservée en secours et pour les altitudes précisées.
+  const isNeigeIsotherme = r => {
     if(r.precipitation === null || r.precipitation < PLUIE_SEUIL) return false;
     if(r.freezingLevel !== null && r.freezingLevel !== undefined){
       return effectiveAltitude >= (r.freezingLevel - ALTITUDE_NEIGE_MARGE);
     }
     return r.weatherCode !== null && NEIGE_CODES.includes(r.weatherCode);
   };
+  // Règle principale : cumul de neige quotidien fourni par les archives (snowfall_sum, en cm).
+  // Si une altitude est précisée, la neige des archives reste celle de la maille du modèle :
+  // on garde alors aussi l'estimation par l'isotherme, qui utilise la température corrigée.
+  const snowfallAvailable = rows.some(r => r.snowfall !== null && r.snowfall !== undefined);
+  const customAltitude = currentCity.elevation !== null && currentCity.elevation !== undefined;
+  const isNeige = r => {
+    if(!snowfallAvailable) return isNeigeIsotherme(r);
+    const bySnowfall = r.snowfall !== null && r.snowfall !== undefined && r.snowfall >= NEIGE_SEUIL_CM;
+    return bySnowfall || (customAltitude && isNeigeIsotherme(r));
+  };
   const neigeDays = rows.filter(isNeige).length;
+  const snowTotalCm = rows.reduce((acc, r) => acc + (r.snowfall > 0 ? r.snowfall : 0), 0);
+  const snowTotalTxt = (snowTotalCm >= 10 ? Math.round(snowTotalCm) : Math.round(snowTotalCm * 10) / 10).toLocaleString(lang === "en" ? "en-US" : "fr-FR");
   const pluieDays = rows.filter(r => r.precipitation !== null && r.precipitation >= PLUIE_SEUIL && !isNeige(r)).length;
   const ventDays = rows.filter(r => r.windGusts !== null && r.windGusts >= VENT_SEUIL).length;
   const aqiDaysAvailable = rows.some(r => r.aqi !== null);
   const aqiDays = rows.filter(r => r.aqi !== null && r.aqi > AQI_SEUIL).length;
   const beauTempsDays = rows.filter(r => r.weatherCode !== null && BEAU_TEMPS_CODES.includes(r.weatherCode)).length;
 
-  buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays);
+  buildPeriodBulletin(rows, start, end, maxRow, minRow, avg, caniculeDays, gelDays, ventDays, aqiDaysAvailable, aqiDays, neigeDays, snowfallAvailable ? snowTotalTxt : null);
 
   // Jauge
   gaugePanelEl.style.display = "block";
@@ -1803,10 +1830,10 @@ function renderStats(rows, start, end){
       <div class="card-value" style="color:${PALETTE.aqi}">${aqiDaysAvailable ? aqiDays : "—"}</div>
       <div class="card-sub">${aqiDaysAvailable ? t("cardAqiSub", rows.length) : t("cardAqiUnavailable")}</div>
     </div>
-    <div class="card" style="--accent:#a8dadc">
+    <div class="card" style="--accent:#a8dadc"${snowfallAvailable ? ` title="${t("cardSnowTitle")}"` : ""}>
       <div class="card-label">${t("cardSnowDays")}</div>
       <div class="card-value" style="color:#a8dadc">${neigeDays}</div>
-      <div class="card-sub">${t("cardSnowSub", rows.length)}</div>
+      <div class="card-sub">${snowfallAvailable ? t("cardSnowSubCm", NEIGE_SEUIL_CM.toLocaleString(lang === "en" ? "en-US" : "fr-FR"), snowTotalTxt, rows.length) : t("cardSnowSub", rows.length)}</div>
     </div>
     <div class="card" style="--accent:#e9c46a">
       <div class="card-label">${t("cardFairDays")}</div>
