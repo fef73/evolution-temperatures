@@ -112,6 +112,34 @@
   }
   .current-city-name{font-size:15px;}
   .current-city-region{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-lo);}
+  .current-city-pop{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-lo); margin-top:4px; cursor:help;}
+  .current-city-pop:empty{display:none;}
+  .current-city-pop b{color:var(--text-hi); font-weight:500;}
+
+  .features-panel{ margin-top:22px; }
+  .features-panel details{
+    background:var(--bg-panel); border:1px solid var(--hairline); border-radius:16px;
+    padding:4px 22px;
+  }
+  .features-panel summary{
+    cursor:pointer; padding:15px 0; font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:500;
+    color:var(--text-hi); list-style:none; display:flex; align-items:center; gap:9px; user-select:none;
+  }
+  .features-panel summary::-webkit-details-marker{display:none;}
+  .features-panel summary::before{
+    content:"▸"; color:var(--live); font-size:13px; transition:transform .15s ease; display:inline-block;
+  }
+  .features-panel details[open] summary::before{transform:rotate(90deg);}
+  .features-panel .features-body{padding:2px 0 20px;}
+  .features-panel h3{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--live); margin:18px 0 8px;
+  }
+  .features-panel h3:first-child{margin-top:4px;}
+  .features-panel ul{margin:0; padding-left:20px; font-size:13.5px; line-height:1.7; color:var(--text-hi);}
+  .features-panel li{margin-bottom:4px;}
+  .features-panel li b{color:var(--text-hi); font-weight:600;}
+  .features-panel .f-dim{color:var(--text-lo);}
   .current-city-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   .current-city-coords{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-lo);}
   .current-city-altitude{
@@ -372,6 +400,7 @@
     <div>
       <div class="current-city-name" id="current-city-name">Paris</div>
       <div class="current-city-region" id="current-city-region">Île-de-France, France</div>
+      <div class="current-city-pop" id="current-city-pop"></div>
     </div>
     <div class="current-city-right">
       <span class="current-city-altitude" id="current-city-altitude"></span>
@@ -464,6 +493,8 @@
   <div class="bulletin" id="bulletin-period"></div>
 
   <div class="cards" id="cards"></div>
+
+  <div class="features-panel" id="features-panel"></div>
 
   <footer>
     <span id="footer-source-line">Source : archives climatiques Open-Meteo (ERA5, géocodage sans clé API) · Fuseau horaire local à la ville<br>
@@ -678,6 +709,175 @@ const TRANSLATIONS = {
   },
 };
 
+// ---------- Population de la ville et de la zone urbaine ----------
+Object.assign(TRANSLATIONS.fr, {
+  popCity: (n) => `Ville : <b>${n}</b> hab.`,
+  popUrban: (n) => `Zone urbaine : <b>${n}</b> hab.`,
+  popTitleFr: (commune, popC, epci, popE) => `Commune de ${commune} : ${popC} hab. (INSEE)` + (epci ? `\nZone urbaine = intercommunalité ${epci} : ${popE} hab. (INSEE)` : ""),
+  popTitleWorld: (nom, popC) => `Population de ${nom} : ${popC} hab. (Open-Meteo / GeoNames) — zone urbaine disponible pour la France uniquement`,
+});
+Object.assign(TRANSLATIONS.en, {
+  popCity: (n) => `City: <b>${n}</b> inh.`,
+  popUrban: (n) => `Urban area: <b>${n}</b> inh.`,
+  popTitleFr: (commune, popC, epci, popE) => `Town of ${commune}: ${popC} inh. (INSEE)` + (epci ? `\nUrban area = inter-municipal area ${epci}: ${popE} inh. (INSEE)` : ""),
+  popTitleWorld: (nom, popC) => `Population of ${nom}: ${popC} inh. (Open-Meteo / GeoNames) — urban area available for France only`,
+});
+
+// France : commune + intercommunalité (EPCI) via geo.api.gouv.fr — hors France : Open-Meteo Geocoding (GeoNames)
+const populationCache = {};
+function getCityPopulation(city){
+  const key = city.lat + "," + city.lon + "," + city.name;
+  if(populationCache[key]) return populationCache[key];
+  const p = (async () => {
+    try{
+      let c = null;
+      // a) par le nom (les coordonnées peuvent tomber dans une commune voisine), si proche des coordonnées
+      const rn = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(city.name)}&fields=nom,population,codeEpci,centre&limit=5`);
+      if(rn.ok){
+        const list = await rn.json();
+        c = list.find(x => x.centre && (x.centre.coordinates[1] - city.lat) ** 2 + (x.centre.coordinates[0] - city.lon) ** 2 < 0.04) || null; // < ~20 km
+      }
+      // b) sinon par les coordonnées (tableau vide hors France)
+      if(!c){
+        const res = await fetch(`https://geo.api.gouv.fr/communes?lat=${city.lat}&lon=${city.lon}&fields=nom,population,codeEpci`);
+        if(res.ok) [c] = await res.json();
+      }
+      if(c && c.population){
+        let epci = null;
+        if(c.codeEpci){
+          const r2 = await fetch(`https://geo.api.gouv.fr/epcis/${c.codeEpci}?fields=nom,population`);
+          if(r2.ok){
+            const e = await r2.json();
+            if(e && e.population) epci = { nom: e.nom, pop: e.population };
+          }
+        }
+        return { source: "fr", commune: { nom: c.nom, pop: c.population }, epci };
+      }
+    }catch(err){}
+    // Hors France : résultat Open-Meteo le plus proche des coordonnées
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city.name)}&count=10&language=${lang}&format=json`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const cands = (data.results || []).filter(r => r.population);
+    if(!cands.length) return null;
+    const d2 = r => (r.latitude - city.lat) ** 2 + (r.longitude - city.lon) ** 2;
+    const best = cands.reduce((a, b) => d2(b) < d2(a) ? b : a);
+    if(d2(best) > 0.25) return null; // > ~50 km : pas la bonne ville
+    return { source: "world", commune: { nom: best.name, pop: best.population }, epci: null };
+  })();
+  populationCache[key] = p;
+  p.catch(() => delete populationCache[key]);
+  return p;
+}
+function formatPop(n){
+  return new Intl.NumberFormat(lang === "en" ? "en" : "fr", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+}
+function formatPopExact(n){ return n.toLocaleString(lang === "en" ? "en-US" : "fr-FR"); }
+let popRequestKey = null;
+function renderPopulation(){
+  const el = document.getElementById("current-city-pop");
+  if(!el) return;
+  const city = currentCity;
+  const key = city.lat + "," + city.lon + "," + city.name;
+  if(popRequestKey !== key){ el.innerHTML = ""; el.title = ""; }
+  popRequestKey = key;
+  getCityPopulation(city).then(info => {
+    if(popRequestKey !== key) return; // une autre ville a été choisie entre-temps
+    if(!info){ el.innerHTML = ""; el.title = ""; return; }
+    const parts = [t("popCity", formatPop(info.commune.pop))];
+    if(info.epci && info.epci.pop !== info.commune.pop) parts.push(t("popUrban", formatPop(info.epci.pop)));
+    el.innerHTML = "👥 " + parts.join(" · ");
+    el.title = info.source === "fr"
+      ? t("popTitleFr", info.commune.nom, formatPopExact(info.commune.pop), info.epci && info.epci.nom, info.epci && formatPopExact(info.epci.pop))
+      : t("popTitleWorld", info.commune.nom, formatPopExact(info.commune.pop));
+  }).catch(() => { if(popRequestKey === key){ el.innerHTML = ""; el.title = ""; } });
+}
+
+// ---------- Panneau "Fonctionnalités du site" ----------
+const FEATURES_CONTENT = {
+  fr: `
+    <details>
+      <summary>ℹ️ Fonctionnalités du site</summary>
+      <div class="features-body">
+        <h3>🔍 Ville</h3>
+        <ul>
+          <li>Recherche de n'importe quelle ville au monde (géocodage Open-Meteo)</li>
+          <li>Altitude précise optionnelle (bouton ⛰ Altitude) : station de ski, sommet, vallée — la température est recalculée pour ce point</li>
+          <li><b>Population</b> sous le nom de la ville : en France, commune et zone urbaine (intercommunalité / EPCI, INSEE via geo.api.gouv.fr) ; hors France, population de la ville (Open-Meteo / GeoNames) — détail au survol</li>
+        </ul>
+        <h3>📅 Période</h3>
+        <ul>
+          <li>7 jours, 30 jours, 3 mois, 1 an, ou dates personnalisées depuis 1940 (archives climatiques ERA5)</li>
+          <li class="f-dim">Les derniers jours sont consolidés avec environ 5 jours de délai</li>
+        </ul>
+        <h3>📈 Graphique</h3>
+        <ul>
+          <li>Températures maximale, moyenne et minimale, jour après jour</li>
+          <li>Seuils canicule (35°C) et gel (0°C), pression atmosphérique, qualité de l'air (AQI) avec bandes de couleur, isotherme 0°C estimée (à activer)</li>
+          <li>Clic sur la légende pour masquer/afficher une courbe · tooltip avec icône météo et phase de lune au survol</li>
+          <li>Jauge d'amplitude thermique : min, moyenne et max de la période</li>
+        </ul>
+        <h3>🗂️ Cartes et bulletin</h3>
+        <ul>
+          <li>Journées la plus chaude et la plus froide, avec heure du pic, humidité et vent</li>
+          <li>Moyenne et écart thermique sur la période</li>
+          <li>Nombre de jours de canicule, gel, pluie, neige, vent fort (rafales ≥60 km/h), qualité de l'air dégradée et beau temps</li>
+          <li>Bulletin résumant la période, avec alertes canicule, gel, pollution et vent</li>
+        </ul>
+        <h3>⚙️ Confort d'usage</h3>
+        <ul>
+          <li>FR/EN, lien partageable (conserve la ville et la période)</li>
+          <li>Accès direct par URL : <code>?lat=45.92&amp;lon=6.87&amp;ville=Chamonix&amp;alt=1035&amp;periode=30</code> (ou <code>&amp;debut=2024-01-01&amp;fin=2024-01-31</code>)</li>
+        </ul>
+      </div>
+    </details>
+  `,
+  en: `
+    <details>
+      <summary>ℹ️ Site features</summary>
+      <div class="features-body">
+        <h3>🔍 City</h3>
+        <ul>
+          <li>Search any city in the world (Open-Meteo geocoding)</li>
+          <li>Optional precise altitude (⛰ Altitude button): ski resort, summit, valley — temperature is recomputed for that point</li>
+          <li><b>Population</b> under the city name: in France, town and urban area (inter-municipal area / EPCI, INSEE via geo.api.gouv.fr); elsewhere, the city's population (Open-Meteo / GeoNames) — details on hover</li>
+        </ul>
+        <h3>📅 Period</h3>
+        <ul>
+          <li>7 days, 30 days, 3 months, 1 year, or custom dates back to 1940 (ERA5 climate archive)</li>
+          <li class="f-dim">The latest days are consolidated with about a 5-day delay</li>
+        </ul>
+        <h3>📈 Chart</h3>
+        <ul>
+          <li>Maximum, mean and minimum temperatures, day by day</li>
+          <li>Heatwave (35°C) and frost (0°C) thresholds, atmospheric pressure, air quality (AQI) with colour bands, estimated 0°C isotherm (optional)</li>
+          <li>Click the legend to show/hide a line · tooltip with weather icon and moon phase on hover</li>
+          <li>Thermal range gauge: period min, mean and max</li>
+        </ul>
+        <h3>🗂️ Cards and bulletin</h3>
+        <ul>
+          <li>Hottest and coldest days, with peak hour, humidity and wind</li>
+          <li>Period average and thermal range</li>
+          <li>Number of heatwave, frost, rain, snow, strong wind (gusts ≥60 km/h), poor air quality and fair-weather days</li>
+          <li>Bulletin summarising the period, with heatwave, frost, pollution and wind alerts</li>
+        </ul>
+        <h3>⚙️ Convenience</h3>
+        <ul>
+          <li>FR/EN, shareable link (keeps the city and period)</li>
+          <li>Direct URL access: <code>?lat=45.92&amp;lon=6.87&amp;ville=Chamonix&amp;alt=1035&amp;periode=30</code> (or <code>&amp;debut=2024-01-01&amp;fin=2024-01-31</code>)</li>
+        </ul>
+      </div>
+    </details>
+  `,
+};
+function renderFeatures(){
+  const el = document.getElementById("features-panel");
+  if(!el) return;
+  const wasOpen = el.querySelector("details") ? el.querySelector("details").open : false;
+  el.innerHTML = FEATURES_CONTENT[lang] || FEATURES_CONTENT.fr;
+  if(wasOpen) el.querySelector("details").open = true;
+}
+
 let lang = localStorage.getItem("evolution-lang") || (navigator.language && navigator.language.startsWith("en") ? "en" : "fr");
 
 function t(key, ...args){
@@ -688,6 +888,7 @@ function t(key, ...args){
 
 function applyStaticTranslations(){
   document.documentElement.lang = lang;
+  renderFeatures();
   document.querySelectorAll(".lang-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
   document.getElementById("eyebrow").innerHTML = `<span class="pulse"></span> ${t("eyebrow")}`;
   document.getElementById("page-title").textContent = t("title");
@@ -869,6 +1070,7 @@ function selectCity(r){
 }
 
 function renderCurrentCity(){
+  renderPopulation();
   document.getElementById("current-city-name").textContent = currentCity.name;
   document.getElementById("current-city-region").textContent = [currentCity.admin1, currentCity.country].filter(Boolean).join(", ");
   document.getElementById("current-city-coords").textContent = `${currentCity.lat.toFixed(2)}°, ${currentCity.lon.toFixed(2)}°`;
