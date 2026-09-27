@@ -32,8 +32,10 @@ Site : https://fef73.github.io/evolution-temperatures/ — accessible aussi depu
 
 - Journée la plus chaude et la plus froide, avec heure du pic, humidité et vent.
 - Moyenne et écart thermique sur la période.
-- Nombre de jours de canicule (≥35 °C), gel (≤0 °C), pluie (≥1 mm), neige, vent fort (rafales ≥60 km/h), qualité de l'air dégradée (AQI >40) et beau temps.
-- Bulletin résumant la période, avec alertes canicule, gel, pollution et vent.
+- Nombre de jours de canicule (≥35 °C), gel (≤0 °C), pluie (≥1 mm, hors jours de neige), vent fort (rafales ≥60 km/h), qualité de l'air dégradée (AQI >40) et beau temps.
+- **Jours de neige** : cumul de neige quotidien des archives Open-Meteo (`snowfall_sum`, ERA5), un jour comptant dès 0,5 cm ; le total de neige tombée sur la période est affiché en cm.
+  - Si une altitude est précisée, la neige des archives reste celle de la maille du modèle : un jour compte donc aussi comme neigeux s'il a précipité (≥1 mm) alors que la température moyenne corrigée pour l'altitude était ≤1,3 °C (point situé au-dessus de l'isotherme 0 °C, ou moins de 200 m en dessous).
+- Bulletin résumant la période, avec alertes canicule, gel, pollution, vent et neige.
 
 ## Confort d'usage
 
@@ -51,7 +53,7 @@ Site : https://fef73.github.io/evolution-temperatures/ — accessible aussi depu
 
 ## Sources de données
 
-- Archives climatiques journalières et horaires : `archive-api.open-meteo.com` (ERA5)
+- Archives climatiques journalières et horaires (températures, précipitations, cumul de neige, vent, pression) : `archive-api.open-meteo.com` (ERA5)
 - Qualité de l'air : `air-quality-api.open-meteo.com`
 - Géocodage : `geocoding-api.open-meteo.com`
 - Population (France) : `geo.api.gouv.fr` (INSEE)
