@@ -11,7 +11,7 @@ Site : https://fef73.github.io/evolution-temperatures/ — accessible aussi depu
 - **Population** affichée sous le nom de la ville :
   - en France : population de la **commune** et de la **zone urbaine** (intercommunalité / EPCI), données INSEE via `geo.api.gouv.fr` ;
   - hors France : population de la ville (Open-Meteo / GeoNames) ;
-  - chiffres exacts et sources au survol.
+  - chiffres exacts et sources au survol (ou au toucher sur mobile).
 
 ## Période
 
