@@ -37,7 +37,7 @@ Site : https://fef73.github.io/evolution-temperatures/ — accessible aussi depu
 
 ## Confort d'usage
 
-- Interface bilingue FR/EN (préférence mémorisée).
+- Interface bilingue FR/EN et unité °C/°F (préférences mémorisées) — graphique, cartes, jauge et bulletin sont convertis.
 - Lien de partage qui conserve la ville et la période.
 - Accès direct par URL, pour un raccourci ou une appli mobile :
   ```
